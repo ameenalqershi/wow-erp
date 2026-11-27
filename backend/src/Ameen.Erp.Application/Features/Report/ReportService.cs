@@ -9,23 +9,41 @@ public sealed partial class ReportService : ApplicationService
     }
 
 
-    private async Task ValidateReportCenter(Guid cid, Membership member, Guid? branchId, Guid? centerId, CancellationToken ct)
+    private async Task<Guid[]> ReportBranches(Guid cid, Actor actor, Guid? branchId, Guid[]? branchIds,
+        Guid? centerId, CancellationToken ct)
     {
-        if (centerId is not Guid id) return;
-        var center = await Required<CostCenter>(cid, id, ct);
-        Check.That(center.BranchId is null || member.Allows(center.BranchId.Value),
-            "branch_access_denied", "مركز التكلفة خارج نطاق الفروع المسموحة.", ErrorKind.Forbidden);
-        Check.That(center.BranchId is null || branchId is null || center.BranchId == branchId,
-            "cost_center_mismatch", "مركز التكلفة تابع لفرع آخر.");
+        var member = await Authorize(cid, actor, Permissions.Read, branchId, ct);
+        Check.That(branchId is null || branchIds is not { Length: > 0 },
+            "ambiguous_branch_filter", "حدد الفروع باستخدام معامل واحد.");
+        Guid[] selected = branchId is Guid single ? [single] : branchIds?.Distinct().ToArray() ?? [];
+        if (selected.Length == 0)
+            selected = await AllowedBranches(cid, member, null, ct);
+        else
+        {
+            Check.That(selected.All(member.Allows), "branch_access_denied",
+                "الفرع خارج نطاق صلاحياتك.", ErrorKind.Forbidden);
+            var matches = await store.Find<Branch>(cid, x => selected.Contains(x.Id), ct);
+            Check.That(matches.Count == selected.Length, "reference_not_found",
+                "الفرع غير موجود ضمن الشركة المحددة.", ErrorKind.NotFound);
+            Check.That(matches.All(x => x.IsActive), "branch_inactive", "الفرع معطل.");
+        }
+        if (centerId is Guid id)
+        {
+            var center = await Required<CostCenter>(cid, id, ct);
+            Check.That(center.BranchId is null || member.Allows(center.BranchId.Value),
+                "branch_access_denied", "مركز التكلفة خارج نطاق الفروع المسموحة.", ErrorKind.Forbidden);
+            Check.That(center.BranchId is null || selected.Contains(center.BranchId.Value),
+                "cost_center_mismatch", "مركز التكلفة خارج الفروع المحددة.");
+        }
+        return selected;
     }
     public async Task<TrialBalanceResult> TrialBalance(Guid cid, Actor actor, DateOnly from, DateOnly to, Guid? branchId,
-        CancellationToken ct, Guid? costCenterId = null, int? accountLevel = null, bool showZero = true)
+        CancellationToken ct, Guid? costCenterId = null, int? accountLevel = null, bool showZero = true, Guid[]? branchIds = null)
     {
         Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
         Check.That(accountLevel is null or >= 1 and <= 20, "invalid_account_level", "مستوى دليل الحسابات بين 1 و20.");
-        var member = await Authorize(cid, actor, Permissions.Read, branchId, ct);
-        await ValidateReportCenter(cid, member, branchId, costCenterId, ct);
-        var company = await Company(cid, ct); var branches = await AllowedBranches(cid, member, branchId, ct);
+        var branches = await ReportBranches(cid, actor, branchId, branchIds, costCenterId, ct);
+        var company = await Company(cid, ct);
         var journals = await store.Find<JournalEntry>(cid, x => branches.Contains(x.BranchId) && x.AccountingDate <= to &&
             (x.State == JournalState.Posted || x.State == JournalState.Reversed), ct);
         var accounts = await store.Find<Account>(cid, x => true, ct);
@@ -63,19 +81,18 @@ public sealed partial class ReportService : ApplicationService
             rows.Sum(x => x.PeriodCredit), rows.Sum(x => x.ClosingDebit), rows.Sum(x => x.ClosingCredit), costCenterId, accountLevel, showZero);
     }
     public async Task<AccountLedgerResult> AccountLedger(Guid cid, Guid accountId, Actor actor, DateOnly from,
-        DateOnly to, Guid? branchId, int offset, int limit, CancellationToken ct, Guid? costCenterId = null, string? externalReference = null)
+        DateOnly to, Guid? branchId, int offset, int limit, CancellationToken ct, Guid? costCenterId = null, string? externalReference = null, Guid[]? branchIds = null)
     {
         Paging(offset, limit); Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
-        var member = await Authorize(cid, actor, Permissions.Read, branchId, ct);
-        await ValidateReportCenter(cid, member, branchId, costCenterId, ct);
+        var branches = await ReportBranches(cid, actor, branchId, branchIds, costCenterId, ct);
         externalReference = string.IsNullOrWhiteSpace(externalReference) ? null : Check.Text(externalReference, "المرجع الخارجي", 100);
         await Required<Account>(cid, accountId, ct);
-        var company = await Company(cid, ct); var branches = await AllowedBranches(cid, member, branchId, ct);
+        var company = await Company(cid, ct);
         var journals = await store.Find<JournalEntry>(cid, x => branches.Contains(x.BranchId) && x.AccountingDate <= to &&
             (x.State == JournalState.Posted || x.State == JournalState.Reversed) &&
             (externalReference == null || x.ExternalReference == externalReference) &&
             x.Lines.Any(l => l.AccountId == accountId && (costCenterId == null || l.CostCenterId == costCenterId)), ct);
-        var items = journals.OrderBy(x => x.AccountingDate).ThenBy(x => x.Sequence).ThenBy(x => x.Id)
+        var items = journals.OrderBy(x => x.AccountingDate).ThenBy(x => x.Number, StringComparer.Ordinal).ThenBy(x => x.Id)
             .SelectMany(j => j.Lines.Where(l => l.AccountId == accountId && (costCenterId == null || l.CostCenterId == costCenterId))
                 .OrderBy(l => l.Position).Select(l => (Journal: j, Line: l))).ToArray();
         var opening = items.Where(x => x.Journal.AccountingDate < from).Sum(x => x.Line.FunctionalDebit - x.Line.FunctionalCredit);

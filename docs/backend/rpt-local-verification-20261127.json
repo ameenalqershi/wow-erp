@@ -1,0 +1,31 @@
+{
+  "finishedAtUtc": "2026-11-27T01:32:54.435422+00:00",
+  "sourceSha256": "8c06341a0f7bfda177ae03ad2d509c63033cacd56bebafa7f85e7f45cdde8a67",
+  "sdk": "10.0.115",
+  "configuration": "Release",
+  "verifyPy": {
+    "result": "failed",
+    "passed": 533,
+    "total": 535,
+    "failed": 2,
+    "liveSqlRequested": false
+  },
+  "loopbackFailures": [
+    "HTTP: authentication boundary, journal lifecycle, replay, errors and exact JSON",
+    "OpenAPI: production routes expose optional draft headers without SQL dependency"
+  ],
+  "loopbackError": "System.Net.Sockets.SocketException (13): Permission denied",
+  "inProcessHttpVerification": {
+    "transport": "Microsoft.AspNetCore.TestHost 10.0.13, temporary runner; production endpoint map and full suite, using UseTestServer and GetTestClient for the two HTTP hosts",
+    "passed": 535,
+    "total": 535,
+    "failed": 0,
+    "liveSql": false,
+    "productionHttpsJwt": false
+  },
+  "reportChecks": [
+    "PASS RPT01-FG03: active cost-center choices and scoped historical postings",
+    "PASS RPT01/RPT02-FG01: selected branches, authorization, dates and historical totals",
+    "PASS RPT02-AC01/AC02/CTRL01: posted source lines, document order, branch balances and pagination"
+  ]
+}

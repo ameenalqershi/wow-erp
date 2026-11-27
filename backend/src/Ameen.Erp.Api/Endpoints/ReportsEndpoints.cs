@@ -21,13 +21,13 @@ internal static class ReportsEndpoints
             Results.Ok(await s.InventoryLedger(companyId, itemId, Actor(h), Date(from), Date(to), branchId, warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct)))
             .Produces<InventoryLedgerResult>().RequireAuthorization().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/trial-balance", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
-            Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true)))
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
+            Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
             .Produces<TrialBalanceResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/accounts/{accountId:guid}/ledger", async (Guid companyId, Guid accountId,
-            [FromQuery] string from, [FromQuery] string to, Guid? branchId, int? offset, int? limit, Guid? costCenterId, string? externalReference,
+            [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds, int? offset, int? limit, Guid? costCenterId, string? externalReference,
             ReportService s, HttpContext h, CancellationToken ct) =>
-            Results.Ok(await s.AccountLedger(companyId, accountId, Actor(h), Date(from), Date(to), branchId, offset ?? 0, limit ?? 50, ct, costCenterId, externalReference)))
+            Results.Ok(await s.AccountLedger(companyId, accountId, Actor(h), Date(from), Date(to), branchId, offset ?? 0, limit ?? 50, ct, costCenterId, externalReference, branchIds)))
             .Produces<AccountLedgerResult>().RequireAuthorization().WithTags("RPT02 Account ledger");
     }
 }

@@ -2777,7 +2777,7 @@
         },
         "RPT01-F02": {
           "status": "implemented",
-          "binding": "BranchIds"
+          "binding": "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope"
         },
         "RPT01-F03": {
           "status": "implemented",
@@ -2793,7 +2793,7 @@
         },
         "RPT01-F10": {
           "status": "implemented",
-          "binding": "query.costCenterId"
+          "binding": "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads"
         },
         "RPT01-F11": {
           "status": "implemented",
@@ -2807,11 +2807,12 @@
           "status": "partial",
           "binding": "Posted and Reversed originals only; no selection"
         }
-      }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs"
     },
     "RPT02": {
       "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
-      "implemented": "حساب واحد برصيد افتتاحي وجارٍ صحيح عبر الصفحات؛ مرشح مركز ومرجع خارجي يطبقان على الافتتاح والحركة",
+      "implemented": "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة",
       "remaining": "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
       "fields": {
         "RPT02-F01": {
@@ -2820,7 +2821,7 @@
         },
         "RPT02-F02": {
           "status": "implemented",
-          "binding": "BranchIds"
+          "binding": "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope"
         },
         "RPT02-F03": {
           "status": "implemented",
@@ -2832,7 +2833,7 @@
         },
         "RPT02-F11": {
           "status": "implemented",
-          "binding": "query.costCenterId"
+          "binding": "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads"
         },
         "RPT02-F12": {
           "status": "implemented",
@@ -2850,7 +2851,8 @@
           "status": "partial",
           "binding": "route.accountId: one account only"
         }
-      }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerAcceptanceTests.cs"
     },
     "RPT08": {
       "api": "GET /companies/{companyId}/reports/inventory-balances",
