@@ -30,6 +30,32 @@ public static class CostCenterTests
             await Error("invalid_code", () => f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(), request with { Code = "00 043" }, default));
             Ensure(f.Store.Count<AuditEvent>() == audits && (await Get(f, receipt)).Version == receipt.Version);
         });
+        test("COST01-OP02: create is atomic and creates no accounting movement", async f =>
+        {
+            var parent = await Create(f, "NEW-PARENT", null);
+            var request = new CreateCostCenterRequest("NEW-CENTER", "مركز جديد", f.BranchId,
+                parent.ResourceId, EnglishName: "New center", Notes: "ملاحظات");
+            var key = Fixture.Key();
+            var centers = f.Store.Count<CostCenter>();
+            var audits = f.Store.Count<AuditEvent>();
+            var receipts = f.Store.Count<IdempotencyRecord>();
+            var journals = f.Store.Count<JournalEntry>();
+            var movements = f.Store.Count<StockMovement>();
+            f.Store.FailBeforeCommit = true;
+            try { await f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, key, request, default); throw new Exception("Expected rollback"); }
+            catch (IOException) { }
+            Ensure(f.Store.Count<CostCenter>() == centers && f.Store.Count<AuditEvent>() == audits &&
+                f.Store.Count<IdempotencyRecord>() == receipts);
+            var result = await f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, key, request, default);
+            Ensure(await f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, key, request, default) == result);
+            var card = await Get(f, result);
+            Ensure(result.Status == "Created" && card.Revision == 1 && card.IsActive &&
+                card.ParentId == parent.ResourceId && card.BranchId == f.BranchId &&
+                card.EnglishName == request.EnglishName && card.Notes == request.Notes);
+            Ensure(f.Store.Count<CostCenter>() == centers + 1 && f.Store.Count<AuditEvent>() == audits + 1 &&
+                f.Store.Count<IdempotencyRecord>() == receipts + 1 && f.Store.Count<JournalEntry>() == journals &&
+                f.Store.Count<StockMovement>() == movements);
+        });
         test("COST01: direct and indirect cycles are rejected atomically", async f =>
         {
             var root = await Create(f, "ROOT", null); var child = await Create(f, "CHILD", null, root.ResourceId); var r = await Get(f, root);
