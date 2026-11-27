@@ -1644,8 +1644,8 @@ public static class HostedApiIntegration
                 foreach (var deniedActor in new[] { "rpt09-read-only", "rpt09-print-reader", "audit-no-membership" })
                 {
                     Authenticate(Token(deniedActor));
-                    using var denied = await client.GetAsync(rpt09ExportUrl);
-                    Ensure(denied.StatusCode == HttpStatusCode.Forbidden, "RPT09 independent export permission bypassed");
+                    using var rpt09ExportDenied = await client.GetAsync(rpt09ExportUrl);
+                    Ensure(rpt09ExportDenied.StatusCode == HttpStatusCode.Forbidden, "RPT09 independent export permission bypassed");
                 }
                 Authenticate(Token("sql-owner"));
                 var rpt09ExportAfter = await ReadOnlyCounts(connection, companyId);
