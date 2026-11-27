@@ -1,0 +1,123 @@
+contract,screen_id,field_id,original_name,original_type,original_requirement,implementation_status
+RC15,PUR06,PUR06-F01,المعرف الداخلي,رمز نصي,محسوب/نظام,pending
+RC15,PUR06,PUR06-F02,الشركة,مرجع,محسوب/نظام,pending
+RC15,PUR06,PUR06-F03,الفرع,مرجع,إلزامي,pending
+RC15,PUR06,PUR06-F04,السنة,مرجع,محسوب/نظام,pending
+RC15,PUR06,PUR06-F05,رقم المستند,رمز نصي,محسوب/نظام,pending
+RC15,PUR06,PUR06-F06,تاريخ الوثيقة,تاريخ,إلزامي,pending
+RC15,PUR06,PUR06-F07,تاريخ الأثر,تاريخ,إلزامي,pending
+RC15,PUR06,PUR06-F08,العملة,مرجع,إلزامي,pending
+RC15,PUR06,PUR06-F09,سعر الصرف,نسبة/سعر عشري,إلزامي,pending
+RC15,PUR06,PUR06-F10,البيان,نص,إلزامي,pending
+RC15,PUR06,PUR06-F11,المرجع الخارجي,رمز نصي,اختياري,pending
+RC15,PUR06,PUR06-F12,الحالة,اختيار من قائمة,محسوب/نظام,pending
+RC15,PUR06,PUR06-F13,المورد,مرجع,إلزامي,pending
+RC15,PUR06,PUR06-F14,الطلب المرجعي,مرجع,اختياري,pending
+RC15,PUR06,PUR06-F15,موعد التوريد,تاريخ,إلزامي,pending
+RC15,PUR06,PUR06-F16,شروط الدفع,نص,إلزامي,pending
+RC15,PUR06,PUR06-F17,مخزن التسليم,مرجع,إلزامي,pending
+RC15,PUR06,PUR06-F18,سماحية الاستلام,نسبة/سعر عشري,إلزامي,pending
+RC15,PUR06,PUR06-F19,الصنف,مرجع,إلزامي,pending
+RC15,PUR06,PUR06-F20,الوحدة,مرجع,إلزامي,pending
+RC15,PUR06,PUR06-F21,الكمية,عدد عشري للكمية,إلزامي,pending
+RC15,PUR06,PUR06-F22,السعر,مبلغ عشري,إلزامي,pending
+RC15,PUR06,PUR06-F23,الخصم,مبلغ عشري,اختياري,pending
+RC15,PUR06,PUR06-F24,رمز الضريبة,مرجع,شرطي,pending
+RC15,PUR06,PUR06-F25,أنشأه,مرجع,محسوب/نظام,pending
+RC15,PUR06,PUR06-F26,وقت الإنشاء,تاريخ ووقت,محسوب/نظام,pending
+RC15,PUR06,PUR06-F27,رقم إصدار التعديل,عدد صحيح,محسوب/نظام,pending
+RC15,PUR06,PUR06-F28,آخر تعديل,تاريخ ووقت,محسوب/نظام,pending
+RC15,PUR07,PUR07-F01,المعرف الداخلي,رمز نصي,محسوب/نظام,pending
+RC15,PUR07,PUR07-F02,الشركة,مرجع,محسوب/نظام,pending
+RC15,PUR07,PUR07-F03,الفرع,مرجع,إلزامي,pending
+RC15,PUR07,PUR07-F04,السنة,مرجع,محسوب/نظام,pending
+RC15,PUR07,PUR07-F05,رقم المستند,رمز نصي,محسوب/نظام,pending
+RC15,PUR07,PUR07-F06,تاريخ الوثيقة,تاريخ,إلزامي,pending
+RC15,PUR07,PUR07-F07,تاريخ الأثر,تاريخ,إلزامي,pending
+RC15,PUR07,PUR07-F08,العملة,مرجع,إلزامي,pending
+RC15,PUR07,PUR07-F09,سعر الصرف,نسبة/سعر عشري,إلزامي,pending
+RC15,PUR07,PUR07-F10,البيان,نص,إلزامي,pending
+RC15,PUR07,PUR07-F11,المرجع الخارجي,رمز نصي,اختياري,pending
+RC15,PUR07,PUR07-F12,الحالة,اختيار من قائمة,محسوب/نظام,pending
+RC15,PUR07,PUR07-F13,المورد,مرجع,إلزامي,pending
+RC15,PUR07,PUR07-F14,رقم فاتورة المورد,رمز نصي,إلزامي,pending
+RC15,PUR07,PUR07-F15,تاريخ فاتورته,تاريخ,إلزامي,pending
+RC15,PUR07,PUR07-F16,الاستحقاق,تاريخ,إلزامي,pending
+RC15,PUR07,PUR07-F17,نوع الشراء مباشر أو مقابل استلام,اختيار من قائمة,إلزامي,pending
+RC15,PUR07,PUR07-F18,أمر الشراء,مرجع,اختياري,pending
+RC15,PUR07,PUR07-F19,إذن الاستلام,مرجع,شرطي,pending
+RC15,PUR07,PUR07-F20,الصنف أو المصروف,مرجع,إلزامي,pending
+RC15,PUR07,PUR07-F21,الوحدة,مرجع,شرطي,pending
+RC15,PUR07,PUR07-F22,الكمية,عدد عشري للكمية,إلزامي,pending
+RC15,PUR07,PUR07-F23,السعر,مبلغ عشري,إلزامي,pending
+RC15,PUR07,PUR07-F24,الخصم,مبلغ عشري,اختياري,pending
+RC15,PUR07,PUR07-F25,ضريبة,مرجع,شرطي,pending
+RC15,PUR07,PUR07-F26,قابلية الاسترداد,نسبة/سعر عشري,شرطي,pending
+RC15,PUR07,PUR07-F27,الإجمالي قبل الخصم,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F28,إجمالي الخصم,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F29,الوعاء الضريبي,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F30,إجمالي الضريبة,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F31,الإجمالي النهائي,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F32,المبلغ المسدد,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F33,المتبقي,مبلغ عشري,محسوب/نظام,pending
+RC15,PUR07,PUR07-F34,أنشأه,مرجع,محسوب/نظام,pending
+RC15,PUR07,PUR07-F35,وقت الإنشاء,تاريخ ووقت,محسوب/نظام,pending
+RC15,PUR07,PUR07-F36,رقم إصدار التعديل,عدد صحيح,محسوب/نظام,pending
+RC15,PUR07,PUR07-F37,آخر تعديل,تاريخ ووقت,محسوب/نظام,pending
+RC15,COST02,COST02-F01,المعرف الداخلي,رمز نصي,محسوب/نظام,pending
+RC15,COST02,COST02-F02,الشركة,مرجع,محسوب/نظام,pending
+RC15,COST02,COST02-F03,الفرع,مرجع,إلزامي,pending
+RC15,COST02,COST02-F04,السنة,مرجع,محسوب/نظام,pending
+RC15,COST02,COST02-F05,رقم المستند,رمز نصي,محسوب/نظام,pending
+RC15,COST02,COST02-F06,تاريخ الوثيقة,تاريخ,إلزامي,pending
+RC15,COST02,COST02-F07,تاريخ الأثر,تاريخ,إلزامي,pending
+RC15,COST02,COST02-F08,العملة,مرجع,إلزامي,pending
+RC15,COST02,COST02-F09,سعر الصرف,نسبة/سعر عشري,إلزامي,pending
+RC15,COST02,COST02-F10,البيان,نص,إلزامي,pending
+RC15,COST02,COST02-F11,المرجع الخارجي,رمز نصي,اختياري,pending
+RC15,COST02,COST02-F12,الحالة,اختيار من قائمة,محسوب/نظام,pending
+RC15,COST02,COST02-F13,نسخة الموازنة,رمز نصي,إلزامي,pending
+RC15,COST02,COST02-F14,نوع النسخة,اختيار من قائمة,إلزامي,pending
+RC15,COST02,COST02-F15,مسؤول الخطة,مرجع,إلزامي,pending
+RC15,COST02,COST02-F16,الحساب,مرجع,إلزامي,pending
+RC15,COST02,COST02-F17,المركز,مرجع,إلزامي,pending
+RC15,COST02,COST02-F18,الفترة,مرجع,إلزامي,pending
+RC15,COST02,COST02-F19,المبلغ,مبلغ عشري,إلزامي,pending
+RC15,COST02,COST02-F20,أنشأه,مرجع,محسوب/نظام,pending
+RC15,COST02,COST02-F21,وقت الإنشاء,تاريخ ووقت,محسوب/نظام,pending
+RC15,COST02,COST02-F22,رقم إصدار التعديل,عدد صحيح,محسوب/نظام,pending
+RC15,COST02,COST02-F23,آخر تعديل,تاريخ ووقت,محسوب/نظام,pending
+RC15,COST03,COST03-F01,المعرف الداخلي,رمز نصي,محسوب/نظام,pending
+RC15,COST03,COST03-F02,الشركة,مرجع,محسوب/نظام,pending
+RC15,COST03,COST03-F03,الفرع,مرجع,إلزامي,pending
+RC15,COST03,COST03-F04,السنة,مرجع,محسوب/نظام,pending
+RC15,COST03,COST03-F05,رقم المستند,رمز نصي,محسوب/نظام,pending
+RC15,COST03,COST03-F06,تاريخ الوثيقة,تاريخ,إلزامي,pending
+RC15,COST03,COST03-F07,تاريخ الأثر,تاريخ,إلزامي,pending
+RC15,COST03,COST03-F08,العملة,مرجع,إلزامي,pending
+RC15,COST03,COST03-F09,سعر الصرف,نسبة/سعر عشري,إلزامي,pending
+RC15,COST03,COST03-F10,البيان,نص,إلزامي,pending
+RC15,COST03,COST03-F11,المرجع الخارجي,رمز نصي,اختياري,pending
+RC15,COST03,COST03-F12,الحالة,اختيار من قائمة,محسوب/نظام,pending
+RC15,COST03,COST03-F13,نسخة الأساس,مرجع,إلزامي,pending
+RC15,COST03,COST03-F14,سبب المناقلة,نص,إلزامي,pending
+RC15,COST03,COST03-F15,المركز,مرجع,إلزامي,pending
+RC15,COST03,COST03-F16,البند المصدر,مرجع,إلزامي,pending
+RC15,COST03,COST03-F17,البند الهدف,مرجع,إلزامي,pending
+RC15,COST03,COST03-F18,المبلغ,مبلغ عشري,إلزامي,pending
+RC15,COST03,COST03-F19,أنشأه,مرجع,محسوب/نظام,pending
+RC15,COST03,COST03-F20,وقت الإنشاء,تاريخ ووقت,محسوب/نظام,pending
+RC15,COST03,COST03-F21,رقم إصدار التعديل,عدد صحيح,محسوب/نظام,pending
+RC15,COST03,COST03-F22,آخر تعديل,تاريخ ووقت,محسوب/نظام,pending
+RC15,COST05,COST05-F01,الشركة,مرجع,محسوب/نظام,pending
+RC15,COST05,COST05-F02,الفروع المصرح بها,مرجع,إلزامي,pending
+RC15,COST05,COST05-F03,من تاريخ,تاريخ,إلزامي,pending
+RC15,COST05,COST05-F04,إلى تاريخ,تاريخ,إلزامي,pending
+RC15,COST05,COST05-F05,عملة العرض,مرجع,إلزامي,pending
+RC15,COST05,COST05-F06,طريقة عرض العملات,اختيار من قائمة,إلزامي,pending
+RC15,COST05,COST05-F07,حالة المستندات,اختيار من قائمة,إلزامي,pending
+RC15,COST05,COST05-F08,مستوى التفصيل,اختيار من قائمة,إلزامي,pending
+RC15,COST05,COST05-F09,نسخة الموازنة,مرجع,إلزامي,pending
+RC15,COST05,COST05-F10,المركز,مرجع,اختياري,pending
+RC15,COST05,COST05-F11,الحساب,مرجع,اختياري,pending
+RC15,COST05,COST05-F12,تضمين الالتزامات,نعم/لا,إلزامي,pending
