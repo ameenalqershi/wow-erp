@@ -2595,7 +2595,7 @@ TAX08,TAX08-F14,وقت الإنشاء,system,pending,,
 TAX08,TAX08-F15,رقم إصدار التعديل,system,pending,,
 TAX08,TAX08-F16,آخر تعديل,system,pending,,
 RPT01,RPT01-F01,الشركة,system,implemented,CompanyId,GET /companies/{companyId}/reports/trial-balance
-RPT01,RPT01-F02,الفروع المصرح بها,required,implemented,BranchIds,GET /companies/{companyId}/reports/trial-balance
+RPT01,RPT01-F02,الفروع المصرح بها,required,implemented,query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope,GET /companies/{companyId}/reports/trial-balance
 RPT01,RPT01-F03,من تاريخ,required,implemented,query.from,GET /companies/{companyId}/reports/trial-balance
 RPT01,RPT01-F04,إلى تاريخ,required,implemented,query.to,GET /companies/{companyId}/reports/trial-balance
 RPT01,RPT01-F05,عملة العرض,required,partial,Currency: functional currency only; no selection,GET /companies/{companyId}/reports/trial-balance
@@ -2603,10 +2603,10 @@ RPT01,RPT01-F06,طريقة عرض العملات,required,pending,,
 RPT01,RPT01-F07,حالة المستندات,required,partial,Posted and Reversed originals only; no selection,GET /companies/{companyId}/reports/trial-balance
 RPT01,RPT01-F08,مستوى التفصيل,required,pending,,
 RPT01,RPT01-F09,مستوى الدليل,required,implemented,query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth),GET /companies/{companyId}/reports/trial-balance
-RPT01,RPT01-F10,مركز التكلفة,optional,implemented,query.costCenterId,GET /companies/{companyId}/reports/trial-balance
+RPT01,RPT01-F10,مركز التكلفة,optional,implemented,query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads,GET /companies/{companyId}/reports/trial-balance
 RPT01,RPT01-F11,إظهار الصفري,required,implemented,query.showZero,GET /companies/{companyId}/reports/trial-balance
 RPT02,RPT02-F01,الشركة,system,implemented,CompanyId,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
-RPT02,RPT02-F02,الفروع المصرح بها,required,implemented,BranchIds,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
+RPT02,RPT02-F02,الفروع المصرح بها,required,implemented,query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
 RPT02,RPT02-F03,من تاريخ,required,implemented,query.from,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
 RPT02,RPT02-F04,إلى تاريخ,required,implemented,query.to,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
 RPT02,RPT02-F05,عملة العرض,required,partial,Currency: functional currency; original line amounts retained,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
@@ -2615,7 +2615,7 @@ RPT02,RPT02-F07,حالة المستندات,required,partial,Posted and Reversed
 RPT02,RPT02-F08,مستوى التفصيل,required,pending,,
 RPT02,RPT02-F09,من حساب,required,partial,route.accountId: one account only,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
 RPT02,RPT02-F10,إلى حساب,required,pending,,
-RPT02,RPT02-F11,مركز التكلفة,optional,implemented,query.costCenterId,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
+RPT02,RPT02-F11,مركز التكلفة,optional,implemented,query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads,GET /companies/{companyId}/reports/accounts/{accountId}/ledger
 RPT02,RPT02-F12,مرجع خارجي,optional,implemented,query.externalReference (exact case-sensitive match),GET /companies/{companyId}/reports/accounts/{accountId}/ledger
 RPT03,RPT03-F01,الشركة,system,pending,,
 RPT03,RPT03-F02,الفروع المصرح بها,required,pending,,

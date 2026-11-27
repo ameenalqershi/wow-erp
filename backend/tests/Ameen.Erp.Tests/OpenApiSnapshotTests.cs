@@ -71,6 +71,17 @@ public static class OpenApiSnapshotTests
                 if (!cashBoxProperties.TryGetProperty(name, out _))
                     throw new Exception("CASH01 original field missing from OpenAPI: " + name);
             var cashPaths = json.RootElement.GetProperty("paths");
+            foreach (var report in new[] { "trial-balance", "accounts/{accountId}/ledger" })
+            {
+                var operation = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/" + report).GetProperty("get");
+                var parameter = operation.GetProperty("parameters").EnumerateArray()
+                    .Single(p => p.GetProperty("name").GetString() == "branchIds");
+                var schema = parameter.GetProperty("schema");
+                if (parameter.GetProperty("in").GetString() != "query" ||
+                    schema.GetProperty("type").GetString() != "array" ||
+                    schema.GetProperty("items").GetProperty("format").GetString() != "uuid")
+                    throw new Exception("Report branchIds must be a repeated UUID query parameter");
+            }
             var cashCreate = cashPaths.GetProperty("/api/v1/companies/{companyId}/cash-boxes").GetProperty("post");
             if (cashCreate.GetProperty("security").GetArrayLength() == 0 ||
                 !cashCreate.GetProperty("parameters").EnumerateArray().Any(p =>

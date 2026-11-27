@@ -101,6 +101,22 @@ public static class HttpIntegration
             Ensure(json.RootElement.GetProperty("totalClosingDebit").GetString() == "100", "Decimal HTTP contract differs");
             Ensure(json.RootElement.GetProperty("from").GetString() == "2026-01-01", "Date HTTP contract differs");
 
+            foreach (var reportPath in new[] { "trial-balance", $"accounts/{f.CashId}/ledger" })
+            {
+                var url = $"/api/v1/companies/{f.CompanyId}/reports/{reportPath}?from=2026-01-01&to=2026-12-31";
+                using var selection = await client.GetAsync(url + $"&branchIds={f.OtherBranchId}&branchIds={f.BranchId}");
+                selection.EnsureSuccessStatusCode();
+                using var data = JsonDocument.Parse(await selection.Content.ReadAsStringAsync());
+                var ids = data.RootElement.GetProperty("branchIds").EnumerateArray().Select(x => x.GetGuid()).ToArray();
+                Ensure(ids.Length == 2 && ids.Contains(f.BranchId) && ids.Contains(f.OtherBranchId), "Repeated branchIds lost a branch");
+                using var invalid = await client.GetAsync(url + "&branchIds=invalid");
+                Ensure(invalid.StatusCode == HttpStatusCode.BadRequest, "Malformed branch was accepted");
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", f.Limited.Subject);
+                using var denied = await client.GetAsync(url + $"&branchIds={f.BranchId}&branchIds={f.OtherBranchId}");
+                await Problem(denied, 403, "branch_access_denied");
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", f.Approver.Subject);
+            }
+
             await f.Post(await f.Draft(f.Request() with { AutomaticReversal = true, ReversalDate = Fixture.Date }));
             client.DefaultRequestHeaders.Authorization = null;
             using (var anonymousRun = await Send(client, path + "/reversals/run-due", new RunDueReversalsRequest(Fixture.Date)))

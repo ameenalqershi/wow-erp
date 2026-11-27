@@ -343,6 +343,16 @@ public static class HostedApiIntegration
                 receipt = await Command(client, path + $"/{receipt.ResourceId}/submit", new TransitionRequest(receipt.Version));
                 Authenticate(Token("sql-approver"));
                 receipt = await Command(client, path + $"/{receipt.ResourceId}/approve", new TransitionRequest(receipt.Version));
+                var gl03LedgerPath = $"/api/v1/companies/{companyId}/reports/accounts/" +
+                    journalRequest.Lines[0].AccountId +
+                    "/ledger?from=2026-01-01&to=2026-12-31&branchId=" +
+                    journalRequest.BranchId + "&externalReference=000070-PRINT";
+                using (var unpostedLedger = await client.GetAsync(gl03LedgerPath))
+                using (var json = JsonDocument.Parse(await unpostedLedger.Content.ReadAsStringAsync()))
+                    Ensure(unpostedLedger.StatusCode == HttpStatusCode.OK &&
+                        json.RootElement.GetProperty("entries").GetProperty("totalCount").GetInt32() == 0 &&
+                        json.RootElement.GetProperty("closingBalance").GetString() == "0",
+                        "RPT02 approved but unposted journal affected the account ledger");
                 receipt = await Command(client, path + $"/{receipt.ResourceId}/post", new TransitionRequest(receipt.Version));
                 Ensure(receipt.Status == "Posted", "Production HTTP posting failed");
                 using (var detail = await client.GetAsync(path + $"/{receipt.ResourceId}"))
@@ -355,10 +365,6 @@ public static class HostedApiIntegration
                 // GL03-T01: a posted manual journal must be visible to the
                 // authorized account ledger under its exact document reference,
                 // with historical functional/original amounts and no duplicate.
-                var gl03LedgerPath = $"/api/v1/companies/{companyId}/reports/accounts/" +
-                    journalRequest.Lines[0].AccountId +
-                    "/ledger?from=2026-01-01&to=2026-12-31&branchId=" +
-                    journalRequest.BranchId + "&externalReference=000070-PRINT";
                 using (var postedLedger = await client.GetAsync(gl03LedgerPath))
                 using (var ledgerBody = JsonDocument.Parse(
                     await postedLedger.Content.ReadAsStringAsync()))
@@ -379,6 +385,22 @@ public static class HostedApiIntegration
                         entries.GetProperty("items")[0].GetProperty("debit").GetString() == "100" &&
                         entries.GetProperty("items")[0].GetProperty("credit").GetString() == "0",
                         "GL03-T01 posted journal missing or duplicated in the HTTP account ledger");
+                    var row = entries.GetProperty("items")[0];
+                    using var source = await client.GetAsync(path + $"/{row.GetProperty("journalId").GetGuid()}");
+                    source.EnsureSuccessStatusCode();
+                    using var sourceJson = JsonDocument.Parse(await source.Content.ReadAsStringAsync());
+                    var journal = sourceJson.RootElement;
+                    var line = journal.GetProperty("lines").EnumerateArray().Single(x =>
+                        x.GetProperty("position").GetInt32() == row.GetProperty("position").GetInt32());
+                    Ensure(row.GetProperty("accountingDate").GetString() == journal.GetProperty("accountingDate").GetString() &&
+                        row.GetProperty("number").GetString() == journal.GetProperty("number").GetString() &&
+                        line.GetProperty("accountId").GetGuid() == journalRequest.Lines[0].AccountId &&
+                        row.GetProperty("description").GetString() == line.GetProperty("description").GetString() &&
+                        row.GetProperty("debit").GetString() == line.GetProperty("functionalDebit").GetString() &&
+                        row.GetProperty("credit").GetString() == line.GetProperty("functionalCredit").GetString() &&
+                        row.GetProperty("runningBalance").GetString() == "100" &&
+                        ledgerRoot.GetProperty("closingBalance").GetString() == "100",
+                        "RPT02 ledger line does not reconcile with its source or balance");
                 }
                 Authenticate(Token("gl03-t01-no-membership"));
                 using (var deniedLedger = await client.GetAsync(gl03LedgerPath))
@@ -387,6 +409,16 @@ public static class HostedApiIntegration
                 Authenticate(Token("sql-approver"));
                 Console.WriteLine("  HOST PASS GL03-T01 balanced posted journal with exact account-ledger reference and JWT tenant denial");
 
+                foreach (var reportPath in new[] { "trial-balance", $"accounts/{journalRequest.Lines[0].AccountId}/ledger" })
+                {
+                    var url = $"/api/v1/companies/{companyId}/reports/{reportPath}?from=2026-01-01&to=2026-12-31";
+                    var id = journalRequest.BranchId;
+                    using var selected = await client.GetAsync(url + $"&branchIds={id}&branchIds={id}");
+                    selected.EnsureSuccessStatusCode();
+                    using var data = JsonDocument.Parse(await selected.Content.ReadAsStringAsync());
+                    Ensure(data.RootElement.GetProperty("branchIds").EnumerateArray().Single().GetGuid() == id,
+                        "SQL report did not apply the selected branch");
+                }
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");
                 Ensure(hierarchy.StatusCode == HttpStatusCode.OK, "Production report filters failed");
                 using (var report = JsonDocument.Parse(await hierarchy.Content.ReadAsStringAsync()))
@@ -2166,6 +2198,25 @@ public static class HostedApiIntegration
                 using (var usage = await client.GetAsync(centersPath + $"/{rootCenter.ResourceId}/usage"))
                 using (var json = JsonDocument.Parse(await usage.Content.ReadAsStringAsync()))
                     Ensure(json.RootElement.GetProperty("childCenterCount").GetInt32() == 1, "Center HTTP usage failed");
+                var trialByCenter = $"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31" +
+                    $"&accountLevel=1&showZero=false&costCenterId={childCenter.ResourceId}";
+                using (var active = await client.GetAsync(trialByCenter))
+                {
+                    active.EnsureSuccessStatusCode();
+                    using var data = JsonDocument.Parse(await active.Content.ReadAsStringAsync());
+                    Ensure(data.RootElement.GetProperty("rows").GetArrayLength() == 0 &&
+                        data.RootElement.GetProperty("costCenterId").GetGuid() == childCenter.ResourceId,
+                        "RPT01 empty active center should have no rows with showZero=false");
+                }
+                await Command(client, centersPath + $"/{childCenter.ResourceId}/status",
+                    new SetCostCenterStatusRequest(childCenter.Version, false, "تعطيل المركز بعد الفحص"));
+                using (var choices = await client.GetAsync(centersPath + "/search?isActive=true&search=HTTP-CHILD"))
+                using (var data = JsonDocument.Parse(await choices.Content.ReadAsStringAsync()))
+                    Ensure(choices.StatusCode == HttpStatusCode.OK &&
+                        data.RootElement.GetProperty("totalCount").GetInt32() == 0,
+                        "RPT01 inactive center remained selectable");
+                using (var history = await client.GetAsync(trialByCenter))
+                    history.EnsureSuccessStatusCode();
                 Console.WriteLine("  HOST PASS SYS04/COST01 create, PUT edit, search, status, usage and audit over production HTTPS/JWT/SQL");
                 Authenticate(Token("sql-clerk"));
                 Console.WriteLine("  HOST PASS GL01 create/detail/PUT edit/replay, explicit nature, usage and audit over production HTTPS/JWT/SQL");

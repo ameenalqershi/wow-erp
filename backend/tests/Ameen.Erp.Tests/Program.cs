@@ -378,6 +378,33 @@ Test("RPT01 RPT02: cost-center scope cannot bypass company or branch permissions
     await Error("cost_center_mismatch", () => f.Service.Report.TrialBalance(f.CompanyId, f.Clerk, Fixture.Date, Fixture.Date, f.BranchId, default, other.ResourceId));
     await Error("reference_not_found", () => f.Service.Report.TrialBalance(f.CompanyId, f.Clerk, Fixture.Date, Fixture.Date, null, default, Guid.NewGuid()));
 });
+Test("RPT01-FG03: active cost-center choices and scoped historical postings", async f =>
+{
+    var center = await f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(),
+        new("HIST", "مركز تاريخي", f.OtherBranchId), default);
+    var request = f.Request(37, 37, f.OtherBranchId);
+    await f.Post(await f.Draft(request with { Lines = request.Lines.Select(x => x with { CostCenterId = center.ResourceId }).ToArray() }));
+    Task<TrialBalanceResult> Trial(Actor actor, Guid? selected) =>
+        f.Service.Report.TrialBalance(f.CompanyId, actor, Fixture.Date, Fixture.Date, null, default, selected, accountLevel: 1, showZero: false);
+    Task<AccountLedgerResult> Ledger(Actor actor, Guid? selected) =>
+        f.Service.Report.AccountLedger(f.CompanyId, f.CashId, actor, Fixture.Date, Fixture.Date, null, 0, 50, default, selected);
+    async Task<bool> Selectable(Actor actor) =>
+        (await f.Service.CostCenter.SearchCostCenters(f.CompanyId, actor, "HIST", null, null, true, 0, 20, default))
+        .Items.Any(x => x.Id == center.ResourceId);
+    Assert(await Selectable(f.Owner) && !await Selectable(f.Limited));
+    var active = await Trial(f.Owner, center.ResourceId);
+    Assert(active.Rows.Count == 2 && active.Rows.All(row => row.Level == 1) && active.TotalClosingDebit == 37);
+    await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, center.ResourceId, f.Owner, Fixture.Key(),
+        new(center.Version, false, "تعطيل المركز"), default);
+    Assert(!await Selectable(f.Owner));
+    Assert((await Trial(f.Owner, center.ResourceId)).TotalClosingDebit == 37 &&
+        (await Ledger(f.Owner, center.ResourceId)).ClosingBalance == 37);
+    await Error("branch_access_denied", () => Trial(f.Limited, center.ResourceId));
+    await Error("branch_access_denied", () => Ledger(f.Limited, center.ResourceId));
+    var historical = await Trial(f.Owner, null);
+    Assert(historical.TotalClosingDebit == 37 && historical.TotalClosingCredit == 37 &&
+        (await Ledger(f.Owner, null)).ClosingBalance == 37);
+});
 Test("RPT02: external reference filters opening and movement with exact matching", async f =>
 {
     await f.Post(await f.Draft(f.Request(100, 100, date: new(2026, 1, 1)) with { ExternalReference = "REF-A" }));
@@ -676,6 +703,8 @@ AccountTests.Register(Test);
 RecurringTests.Register(Test);
 ScheduledReversalTests.Register(Test);
 JournalAuditTests.Register(Test);
+Test("RPT01/RPT02-FG01: selected branches, authorization, dates and historical totals", ReportBranchSelectionTests.Run);
+Test("RPT02-AC01/AC02/CTRL01: posted source lines, document order, branch balances and pagination", AccountLedgerAcceptanceTests.Run);
 NumberingTests.Register(Test);
 FinancialMappingTests.Register(Test);
 JournalDocumentTypeFoundationTests.Register(Test);

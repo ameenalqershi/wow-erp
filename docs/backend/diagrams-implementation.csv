@@ -13,7 +13,7 @@ module-HR,muhaseb-erp-analysis/diagrams/source/module-HR.mmd,not-started,لم ي
 module-MFG,muhaseb-erp-analysis/diagrams/source/module-MFG.mmd,not-started,لم يبدأ التنفيذ
 module-PRJ,muhaseb-erp-analysis/diagrams/source/module-PRJ.mmd,not-started,لم يبدأ التنفيذ
 module-TAX,muhaseb-erp-analysis/diagrams/source/module-TAX.mmd,not-started,لم يبدأ التنفيذ
-module-RPT,muhaseb-erp-analysis/diagrams/source/module-RPT.mmd,partial,ميزان وأستاذ جزئيان
+module-RPT,muhaseb-erp-analysis/diagrams/source/module-RPT.mmd,partial,14 شاشة و164 حقلاً؛ تنفيذ جزئي في RPT01 وRPT02 وRPT08 وRPT09. المطابقة: docs/backend/rpt-diagram-audit.md
 system-map,muhaseb-erp-analysis/diagrams/source/system-map.mmd,partial,أساس SYS وGL وبعض COST وINV وRPT؛ بقية الأقسام لم تبدأ
 document-lifecycle,muhaseb-erp-analysis/diagrams/source/document-lifecycle.mmd,partial,الدورة منفذة للقيد اليدوي؛ الرفض يعيد Draft مع سبب وتاريخ في التدقيق؛ محاولة الترحيل ليست حالة دائمة
 purchase-to-pay,muhaseb-erp-analysis/diagrams/source/purchase-to-pay.mmd,not-started,لم يبدأ التنفيذ
