@@ -39,6 +39,36 @@ public static class CurrencyTests
             await Error("currency_precision_in_use", () => f.Service.Currency.EditCurrency(f.CompanyId, c.Id, f.Owner, Fixture.Key(), Edit(c) with { Scale = 3 }, default));
             Ensure((await f.Service.Currency.GetCurrencyUsage(f.CompanyId, c.Id, f.Owner, default)).AccountCount == 1);
         });
+        test("SYS04/CASH01: cashbox-only currency reference protects precision even when inactive", async f =>
+        {
+            var receipt = await Create(f);
+            var card = await Currency(f, receipt);
+            var member = f.Store.All<Membership>().Single(x => x.Subject == f.Clerk.Subject);
+            var box = await f.Service.CashBox.CreateCashBox(f.CompanyId, f.Owner, Fixture.Key(),
+                new("USD-BOX", "صندوق الدولار", f.CashId, f.BranchId, member.Id, "USD", 12.34m), default);
+            var usage = await f.Service.Currency.GetCurrencyUsage(f.CompanyId, card.Id, f.Owner, default);
+            Ensure(usage.AccountCount == 0 && usage.ExchangeRateCount == 0 &&
+                usage.JournalCount == 0 && usage.RecurringTemplateCount == 0);
+            async Task Reject()
+            {
+                var version = card.Version;
+                var auditCount = f.Store.Count<AuditEvent>();
+                var receiptCount = f.Store.Count<IdempotencyRecord>();
+                await Error("currency_precision_in_use", () => f.Service.Currency.EditCurrency(
+                    f.CompanyId, card.Id, f.Owner, Fixture.Key(), Edit(card) with { Scale = 1 }, default));
+                var unchanged = await Currency(f, receipt);
+                Ensure(unchanged.Scale == 2 && unchanged.Version == version &&
+                    f.Store.Count<AuditEvent>() == auditCount && f.Store.Count<IdempotencyRecord>() == receiptCount);
+            }
+            await Reject();
+            await f.Service.CashBox.SetCashBoxStatus(f.CompanyId, box.ResourceId, f.Owner, Fixture.Key(),
+                new(box.Version, false, "تعطيل"), default);
+            await Reject();
+            var changed = await f.Service.Currency.EditCurrency(f.CompanyId, card.Id, f.Owner, Fixture.Key(),
+                Edit(card) with { Name = "دولار محدث" }, default);
+            Ensure((await Currency(f, changed)).Scale == 2 &&
+                (await f.Service.CashBox.GetCashBox(f.CompanyId, box.ResourceId, f.Owner, default)).BalanceLimit == 12.34m);
+        });
         test("SYS04: historical exchange rate freezes precision without any journal", async f =>
         {
             var r = await Create(f); var c = await Currency(f, r);

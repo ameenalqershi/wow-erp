@@ -365,6 +365,44 @@ public static class SqlIntegration
                 f.CompanyId, f.Owner, f.Clerk, f.Approver, f.Request());
             await PeriodPendingInventoryCloseSqlAcceptance.Run(options.ConnectionString,
                 f.CompanyId, f.BranchId, f.Owner, f.Clerk, f.Approver);
+
+            // Independent foreign cashbox, no account/rate/journal/template currency reference.
+            var precisionCurrency = await f.Call(s => s.Currency.CreateCurrency(f.CompanyId, f.Owner, Fixture.Key(),
+                new("PLN", 2, "زلوتي بولندي"), default));
+            var precisionCard = await f.Call(s => s.Currency.GetCurrency(f.CompanyId, precisionCurrency.ResourceId, f.Owner, default));
+            var precisionAccount = await f.Call(s => s.Account.CreateAccount(f.CompanyId, f.Owner, Fixture.Key(),
+                new("CASH-PRECISION-2963", "حساب صندوق اختبار الدقة", AccountType.Asset,
+                    null, true, false, false, null, NormalBalance.Debit), default));
+            var precisionBox = await f.Call(s => s.CashBox.CreateCashBox(f.CompanyId, f.Owner, Fixture.Key(),
+                new("CASH-PRECISION-2963", "صندوق اختبار الدقة", precisionAccount.ResourceId,
+                    f.BranchId, cashCustodian, "PLN", 12.34m), default));
+            var precisionUsage = await f.Call(s => s.Currency.GetCurrencyUsage(f.CompanyId, precisionCard.Id, f.Owner, default));
+            Ensure(precisionUsage.AccountCount == 0 && precisionUsage.ExchangeRateCount == 0 &&
+                precisionUsage.JournalCount == 0 && precisionUsage.RecurringTemplateCount == 0,
+                "Currency precision regression requires a cashbox-only reference");
+            async Task RejectCashPrecision()
+            {
+                var rejectedKey = Fixture.Key();
+                await Expect("currency_precision_in_use", () => f.Call(s => s.Currency.EditCurrency(
+                    f.CompanyId, precisionCard.Id, f.Owner, rejectedKey, CurrencyTests.Edit(precisionCard) with { Scale = 1 }, default)));
+                await using var db = f.Context();
+                var stored = await db.Set<Currency>().SingleAsync(x => x.CompanyId == f.CompanyId && x.Id == precisionCard.Id);
+                Ensure(stored.Version == precisionCard.Version && stored.Scale == 2 &&
+                    await db.Set<AuditEvent>().CountAsync(x => x.CompanyId == f.CompanyId && x.ResourceId == precisionCard.Id) == 1 &&
+                    !await db.Set<IdempotencyRecord>().AnyAsync(x => x.CompanyId == f.CompanyId && x.Key == rejectedKey),
+                    "Rejected cashbox currency precision change wrote SQL state");
+            }
+            await RejectCashPrecision();
+            await f.Call(s => s.CashBox.SetCashBoxStatus(f.CompanyId, precisionBox.ResourceId, f.Owner, Fixture.Key(),
+                new(precisionBox.Version, false, "تعطيل"), default));
+            await RejectCashPrecision();
+            await f.Call(s => s.Currency.EditCurrency(f.CompanyId, precisionCard.Id, f.Owner, Fixture.Key(),
+                CurrencyTests.Edit(precisionCard) with { Name = "زلوتي محدث" }, default));
+            await using (var precisionDb = f.Context())
+                Ensure(await precisionDb.Set<CashBox>().AnyAsync(x => x.CompanyId == f.CompanyId &&
+                    x.Id == precisionBox.ResourceId && x.BalanceLimit == 12.34m && !x.IsActive),
+                    "Cashbox limit was changed by currency metadata edit");
+            Console.WriteLine("  SQL PASS SYS04/CASH01 cashbox-only precision guard active/inactive and rollback");
         }
         finally
         {
