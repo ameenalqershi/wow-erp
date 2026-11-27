@@ -473,15 +473,15 @@ GL13,GL13-F14,أنشأه,system,implemented,CreatedBy: server actor,GET/POST /co
 GL13,GL13-F15,وقت الإنشاء,system,implemented,CreatedAt: server clock,GET/POST /companies/{companyId}/financial-mappings; GET/PUT /{id}; POST /status|review; GET /usage|audit-events; GET /reviews/{id}
 GL13,GL13-F16,رقم إصدار التعديل,system,implemented,Revision: server integer distinct from Version UUID,GET/POST /companies/{companyId}/financial-mappings; GET/PUT /{id}; POST /status|review; GET /usage|audit-events; GET /reviews/{id}
 GL13,GL13-F17,آخر تعديل,system,implemented,LastModifiedAt: server clock,GET/POST /companies/{companyId}/financial-mappings; GET/PUT /{id}; POST /status|review; GET /usage|audit-events; GET /reviews/{id}
-GL14,GL14-F01,الشركة,system,partial,CompanyId: EF/SQL tenant key only,internal EF model and SQL 027 only; no public GL14 API
-GL14,GL14-F02,الفرع,conditional,partial,BranchId: nullable tenant FK only,internal EF model and SQL 027 only; no public GL14 API
+GL14,GL14-F01,الشركة,system,partial,CompanyId: required tenant key with SQL company FK; no public GL14 API,internal EF model and SQL 027 only; no public GL14 API
+GL14,GL14-F02,الفرع,conditional,partial,"BranchId: nullable composite (CompanyId,BranchId) SQL/EF FK; active-branch authorization remains pending",internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F03,الحالة,system,partial,IsActive: persisted server state only,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F04,رمز النوع,required,partial,Code: nvarchar(32) unique per company only,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F05,الاسم,required,partial,Name: nvarchar(200) only,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F06,المصدر يدوي أو آلي,required,partial,Origin: Manual/Automatic enum plus domain-only MatchesSource guard; unknown hydrated values fail closed in domain acceptance; no GL03 enforcement,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F07,التسلسل,required,partial,NumberSeriesId: tenant FK; active/scope checks pending,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F08,مسار الاعتماد,required,partial,ApprovalRouteId: required tenant FK via SQL 028; active route validation pending,internal EF model and SQL 027 only; no public GL14 API
-GL14,GL14-F09,إلزام المرفق,required,partial,RequiresAttachment: bit only,internal EF model and SQL 027 only; no public GL14 API
+GL14,GL14-F09,إلزام المرفق,required,implemented,RequiresAttachment: required bool; domain create/edit and SQL 027 bit NOT NULL verified; source/API enforcement remains blocked,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F10,أنشأه,system,partial,"CreatedBy: server actor field, no service",internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F11,وقت الإنشاء,system,partial,CreatedAt: datetimeoffset only,internal EF model and SQL 027 only; no public GL14 API
 GL14,GL14-F12,رقم إصدار التعديل,system,partial,Revision: server int plus expected-revision domain guard; no API concurrency acceptance,internal EF model and SQL 027 only; no public GL14 API
@@ -567,51 +567,51 @@ CASH04,CASH04-F21,أنشأه,system,pending,,
 CASH04,CASH04-F22,وقت الإنشاء,system,pending,,
 CASH04,CASH04-F23,رقم إصدار التعديل,system,pending,,
 CASH04,CASH04-F24,آخر تعديل,system,pending,,
-CASH05,CASH05-F01,المعرف الداخلي,system,pending,,
-CASH05,CASH05-F02,الشركة,system,pending,,
-CASH05,CASH05-F03,الفرع,required,pending,,
-CASH05,CASH05-F04,السنة,system,pending,,
-CASH05,CASH05-F05,رقم المستند,system,pending,,
-CASH05,CASH05-F06,تاريخ الوثيقة,required,pending,,
-CASH05,CASH05-F07,تاريخ الأثر,required,pending,,
-CASH05,CASH05-F08,العملة,required,pending,,
-CASH05,CASH05-F09,سعر الصرف,required,pending,,
-CASH05,CASH05-F10,البيان,required,pending,,
-CASH05,CASH05-F11,المرجع الخارجي,optional,pending,,
-CASH05,CASH05-F12,الحالة,system,pending,,
-CASH05,CASH05-F13,الحساب المرسل,required,pending,,
-CASH05,CASH05-F14,الحساب المستلم,required,pending,,
-CASH05,CASH05-F15,مبلغ الإرسال,required,pending,,
-CASH05,CASH05-F16,مبلغ الاستلام,required,pending,,
-CASH05,CASH05-F17,عملة الاستلام,required,pending,,
-CASH05,CASH05-F18,عمولة,optional,pending,,
-CASH05,CASH05-F19,أنشأه,system,pending,,
-CASH05,CASH05-F20,وقت الإنشاء,system,pending,,
-CASH05,CASH05-F21,رقم إصدار التعديل,system,pending,,
-CASH05,CASH05-F22,آخر تعديل,system,pending,,
-CASH06,CASH06-F01,المعرف الداخلي,system,partial,CashAdvance.Id internal GUID only,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F02,الشركة,system,partial,CashAdvance.CompanyId tenant primary key,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F03,الفرع,required,partial,CashAdvance.BranchId tenant composite FK; operational permission pending,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F04,السنة,system,partial,CashAdvance.FiscalYearId tenant FK; fiscal closure not checked,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F05,رقم المستند,system,partial,CashAdvance.Number nvarchar(64) preserves leading zeroes; no SYS10 scope,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F06,تاريخ الوثيقة,required,partial,CashAdvance.DocumentDate SQL date,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F07,تاريخ الأثر,required,partial,CashAdvance.AccountingDate SQL date; not posted,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F08,العملة,required,partial,CashAdvance.CurrencyCode tenant composite FK,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F09,سعر الصرف,required,partial,"CashAdvance.ExchangeRate decimal(20,10)>0; no dated SYS05 policy",internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F10,البيان,required,partial,CashAdvance.Description nvarchar(1000),internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F11,المرجع الخارجي,optional,partial,CashAdvance.ExternalReference nullable nvarchar(100),internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F12,الحالة,system,partial,CashAdvance.State nonempty text; approved lifecycle missing,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F13,صاحب العهدة,required,partial,CashAdvance.HolderId GUID stored only; HR03 master FK unavailable,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F14,نوع العهدة,required,partial,CashAdvance.AdvanceType nonempty text; approved choices unavailable,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F15,مبلغ العهدة,required,partial,"CashAdvance.Amount decimal(20,6)>0; no cash debit",internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F16,تاريخ التسوية المتوقع,required,partial,CashAdvance.ExpectedSettlementDate SQL date; no workflow timing,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F17,المصروف,conditional,partial,"CashAdvanceLine.ExpenseReferenceId nullable GUID, no approved expense FK",internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F18,مبلغ التسوية,conditional,partial,"CashAdvanceLine.SettlementAmount nullable decimal(20,6)>=0, no real settlement",internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F19,المرفق,conditional,partial,CashAdvanceLine.AttachmentReference nullable nvarchar(300),internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F20,أنشأه,system,partial,CashAdvance.CreatedBy stored actor text; API actor validation pending,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F21,وقت الإنشاء,system,partial,CashAdvance.CreatedAt datetimeoffset(7) stored only,internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F22,رقم إصدار التعديل,system,partial,"CashAdvance.Revision >0 SQL, no operational edit",internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
-CASH06,CASH06-F23,آخر تعديل,system,partial,"CashAdvance.LastModifiedAt datetimeoffset(7)>=CreatedAt, no audit workflow",internal EF/SQL schema 039 only; no live advance/settlement API or GL posting
+CASH05,CASH05-F01,المعرف الداخلي,system,implemented,CashTransfer.Id,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F02,الشركة,system,implemented,CompanyId,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F03,الفرع,required,implemented,BranchId,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F04,السنة,system,implemented,FiscalYearId,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F05,رقم المستند,system,implemented,Number (leading zeroes preserved; no SYS10 uniqueness claim),internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F06,تاريخ الوثيقة,required,implemented,DocumentDate,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F07,تاريخ الأثر,required,implemented,AccountingDate,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F08,العملة,required,implemented,CurrencyCode,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F09,سعر الصرف,required,implemented,ExchangeRate,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F10,البيان,required,implemented,Description,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F11,المرجع الخارجي,optional,implemented,ExternalReference,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F12,الحالة,system,implemented,State (Draft-only),internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F13,الحساب المرسل,required,implemented,SourceKind + SourceAccountId + SourceCashBoxId/SourceBankAccountId,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F14,الحساب المستلم,required,implemented,DestinationKind + DestinationAccountId + DestinationCashBoxId/DestinationBankAccountId,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F15,مبلغ الإرسال,required,implemented,SourceAmount,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F16,مبلغ الاستلام,required,implemented,DestinationAmount,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F17,عملة الاستلام,required,implemented,DestinationCurrencyCode,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F18,عمولة,optional,implemented,Fee,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F19,أنشأه,system,implemented,CreatedBy,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F20,وقت الإنشاء,system,implemented,CreatedAt,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F21,رقم إصدار التعديل,system,implemented,Revision,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH05,CASH05-F22,آخر تعديل,system,implemented,LastModifiedAt,internal EF/SQL 049 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F01,المعرف الداخلي,system,implemented,CashAdvance.Id,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F02,الشركة,system,implemented,CompanyId,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F03,الفرع,required,implemented,BranchId,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F04,السنة,system,implemented,FiscalYearId,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F05,رقم المستند,system,implemented,Number,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F06,تاريخ الوثيقة,required,implemented,DocumentDate,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F07,تاريخ الأثر,required,implemented,AccountingDate,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F08,العملة,required,implemented,CurrencyCode,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F09,سعر الصرف,required,implemented,ExchangeRate,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F10,البيان,required,implemented,Description,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F11,المرجع الخارجي,optional,implemented,ExternalReference,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F12,الحالة,system,partial,State (unapproved state catalogue),internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F13,صاحب العهدة,required,partial,HolderId (opaque HR03 reference; no FK),internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F14,نوع العهدة,required,partial,AdvanceType (text placeholder; no approved value catalogue),internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F15,مبلغ العهدة,required,implemented,Amount,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F16,تاريخ التسوية المتوقع,required,implemented,ExpectedSettlementDate,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F17,المصروف,conditional,partial,CashAdvanceLine.ExpenseReferenceId (opaque HR03 reference; no FK),internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F18,مبلغ التسوية,conditional,partial,CashAdvanceLine.SettlementAmount,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F19,المرفق,conditional,partial,CashAdvanceLine.AttachmentReference,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F20,أنشأه,system,implemented,CreatedBy,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F21,وقت الإنشاء,system,implemented,CreatedAt,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F22,رقم إصدار التعديل,system,implemented,Revision,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
+CASH06,CASH06-F23,آخر تعديل,system,implemented,LastModifiedAt,internal EF/SQL 039 only; no public HTTP API; all EF writes denied
 CASH07,CASH07-F01,المعرف الداخلي,system,partial,"IncomingCheque.Id internal GUID, no business number allocation","internal EF/SQL schema 035 only; no cheque receipt, clearing, rejection or bank API"
 CASH07,CASH07-F02,الشركة,system,partial,IncomingCheque.CompanyId tenant key,"internal EF/SQL schema 035 only; no cheque receipt, clearing, rejection or bank API"
 CASH07,CASH07-F03,الفرع,required,partial,IncomingCheque.BranchId tenant composite FK; operational branch permission pending,"internal EF/SQL schema 035 only; no cheque receipt, clearing, rejection or bank API"
@@ -669,23 +669,23 @@ CASH09,CASH09-F10,أنشأه,system,partial,ChequeMovement.CreatedBy actor store
 CASH09,CASH09-F11,وقت الإنشاء,system,partial,ChequeMovement.CreatedAt datetimeoffset(7) stored,internal EF/SQL schema 037 only; no cheque clearing/cancellation API
 CASH09,CASH09-F12,رقم إصدار التعديل,system,partial,ChequeMovement.Revision int>0; no edit API or CAS transaction,internal EF/SQL schema 037 only; no cheque clearing/cancellation API
 CASH09,CASH09-F13,آخر تعديل,system,partial,ChequeMovement.LastModifiedAt datetimeoffset(7)>=CreatedAt; audit events pending,internal EF/SQL schema 037 only; no cheque clearing/cancellation API
-CASH10,CASH10-F01,الشركة,system,partial,BankReconciliation.CompanyId tenant key,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F02,الفرع,conditional,partial,BankReconciliation.BranchId optional composite tenant FK; operational scope pending,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F03,الحالة,system,partial,BankReconciliation.State nonempty text; lifecycle not approved,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F04,البنك,required,partial,BankReconciliation.BankAccountId composite tenant FK; bank CRUD blocked,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F05,من تاريخ الكشف,required,partial,BankReconciliation.StatementFrom SQL date,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F06,إلى تاريخ الكشف,required,partial,BankReconciliation.StatementTo SQL date; >= StatementFrom,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F07,رصيد أول الكشف,required,partial,"BankReconciliation.OpeningBalance signed decimal(20,6); no ledger impact",internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F08,رصيد آخر الكشف,required,partial,"BankReconciliation.ClosingBalance signed decimal(20,6); no ledger impact",internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F09,معرف ملف الكشف,optional,partial,BankReconciliation.StatementFileId nullable nvarchar(300); source import not approved,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F10,حركة البنك,required,partial,BankReconciliationLine.BankMovementId GUID only; bank movement master FK unavailable,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F11,حركة الدفتر,conditional,partial,BankReconciliationLine.LedgerMovementId optional GUID only; source FK unavailable,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F12,مبلغ مطابق,required,partial,"BankReconciliationLine.MatchedAmount decimal(20,6)>=0; allocation policy pending",internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F13,سبب فرق,conditional,partial,BankReconciliationLine.VarianceReason optional nvarchar(1000); final variance not calculated,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F14,أنشأه,system,partial,BankReconciliation.CreatedBy text stored only; actor validation pending,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F15,وقت الإنشاء,system,partial,BankReconciliation.CreatedAt datetimeoffset(7) stored only,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F16,رقم إصدار التعديل,system,partial,BankReconciliation.Revision>0; no operational edit,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
-CASH10,CASH10-F17,آخر تعديل,system,partial,BankReconciliation.LastModifiedAt>=CreatedAt; no operational update,internal EF/SQL schema 040 only; no bank statement import or reconciliation API
+CASH10,CASH10-F01,الشركة,system,implemented,CompanyId,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F02,الفرع,conditional,implemented,BranchId (nullable),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F03,الحالة,system,partial,State (no approved lifecycle),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F04,البنك,required,implemented,BankAccountId (company-scoped FK),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F05,من تاريخ الكشف,required,implemented,StatementFrom,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F06,إلى تاريخ الكشف,required,implemented,StatementTo,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F07,رصيد أول الكشف,required,implemented,OpeningBalance (signed),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F08,رصيد آخر الكشف,required,implemented,ClosingBalance (signed),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F09,معرف ملف الكشف,optional,implemented,StatementFileId (optional text; no import workflow),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F10,حركة البنك,required,partial,BankReconciliationLine.BankMovementId (no source FK),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F11,حركة الدفتر,conditional,partial,BankReconciliationLine.LedgerMovementId (no source FK),internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F12,مبلغ مطابق,required,implemented,BankReconciliationLine.MatchedAmount,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F13,سبب فرق,conditional,implemented,BankReconciliationLine.VarianceReason,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F14,أنشأه,system,implemented,CreatedBy,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F15,وقت الإنشاء,system,implemented,CreatedAt,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F16,رقم إصدار التعديل,system,implemented,Revision,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
+CASH10,CASH10-F17,آخر تعديل,system,implemented,LastModifiedAt,internal EF/SQL 040 only; no public HTTP API; all EF writes denied
 CASH11,CASH11-F01,الشركة,system,partial,CashCount.CompanyId: tenant primary key and SQL FK; no API,internal EF/SQL schema 033 only; no CASH11 public API or balance adjustment
 CASH11,CASH11-F02,الفرع,conditional,partial,CashCount.BranchId: nullable tenant FK; no branch operation permission yet,internal EF/SQL schema 033 only; no CASH11 public API or balance adjustment
 CASH11,CASH11-F03,الحالة,system,partial,CashCount.State: text slot with nonempty SQL check; lifecycle values not approved; EF writes blocked,internal EF/SQL schema 033 only; no CASH11 public API or balance adjustment
@@ -811,10 +811,10 @@ INV06,INV06-F22,أنشأه,system,implemented,CreatedBy,GET/POST /companies/{com
 INV06,INV06-F23,وقت الإنشاء,system,implemented,CreatedAt,GET/POST /companies/{companyId}/inventory-openings; GET/PUT /{id}; POST /{id}/submit|return|approve|cancel|post|correct-reversal|post-reversal; GET/POST /{id}/reversals; GET /{id}/valuation-preview|audit-events; GET/PUT /posting-settings; GET /companies/{companyId}/stock-movements
 INV06,INV06-F24,رقم إصدار التعديل,system,implemented,Revision,GET/POST /companies/{companyId}/inventory-openings; GET/PUT /{id}; POST /{id}/submit|return|approve|cancel|post|correct-reversal|post-reversal; GET/POST /{id}/reversals; GET /{id}/valuation-preview|audit-events; GET/PUT /posting-settings; GET /companies/{companyId}/stock-movements
 INV06,INV06-F25,آخر تعديل,system,implemented,ModifiedAt,GET/POST /companies/{companyId}/inventory-openings; GET/PUT /{id}; POST /{id}/submit|return|approve|cancel|post|correct-reversal|post-reversal; GET/POST /{id}/reversals; GET /{id}/valuation-preview|audit-events; GET/PUT /posting-settings; GET /companies/{companyId}/stock-movements
-INV07,INV07-F01,المعرف الداخلي,system,pending,,
-INV07,INV07-F02,الشركة,system,pending,,
-INV07,INV07-F03,الفرع,required,pending,,
-INV07,INV07-F04,السنة,system,pending,,
+INV07,INV07-F01,المعرف الداخلي,system,partial,CompanyEntity.Id: generated UUID; no document API,
+INV07,INV07-F02,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV07,INV07-F03,الفرع,required,partial,BranchId: required company-scoped FK,
+INV07,INV07-F04,السنة,system,partial,FiscalYearId: required company-scoped FK,
 INV07,INV07-F05,رقم المستند,system,pending,,
 INV07,INV07-F06,تاريخ الوثيقة,required,pending,,
 INV07,INV07-F07,تاريخ الأثر,required,pending,,
@@ -837,10 +837,10 @@ INV07,INV07-F23,أنشأه,system,pending,,
 INV07,INV07-F24,وقت الإنشاء,system,pending,,
 INV07,INV07-F25,رقم إصدار التعديل,system,pending,,
 INV07,INV07-F26,آخر تعديل,system,pending,,
-INV08,INV08-F01,المعرف الداخلي,system,pending,,
-INV08,INV08-F02,الشركة,system,pending,,
-INV08,INV08-F03,الفرع,required,pending,,
-INV08,INV08-F04,السنة,system,pending,,
+INV08,INV08-F01,المعرف الداخلي,system,partial,CompanyEntity.Id: generated UUID; no document API,
+INV08,INV08-F02,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV08,INV08-F03,الفرع,required,partial,BranchId: required company-scoped FK,
+INV08,INV08-F04,السنة,system,partial,FiscalYearId: required company-scoped FK,
 INV08,INV08-F05,رقم المستند,system,pending,,
 INV08,INV08-F06,تاريخ الوثيقة,required,pending,,
 INV08,INV08-F07,تاريخ الأثر,required,pending,,
@@ -862,10 +862,10 @@ INV08,INV08-F22,أنشأه,system,pending,,
 INV08,INV08-F23,وقت الإنشاء,system,pending,,
 INV08,INV08-F24,رقم إصدار التعديل,system,pending,,
 INV08,INV08-F25,آخر تعديل,system,pending,,
-INV09,INV09-F01,المعرف الداخلي,system,pending,,
-INV09,INV09-F02,الشركة,system,pending,,
-INV09,INV09-F03,الفرع,required,pending,,
-INV09,INV09-F04,السنة,system,pending,,
+INV09,INV09-F01,المعرف الداخلي,system,partial,CompanyEntity.Id: generated UUID; no document API,
+INV09,INV09-F02,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV09,INV09-F03,الفرع,required,partial,BranchId: required company-scoped FK,
+INV09,INV09-F04,السنة,system,partial,FiscalYearId: required company-scoped FK,
 INV09,INV09-F05,رقم المستند,system,pending,,
 INV09,INV09-F06,تاريخ الوثيقة,required,pending,,
 INV09,INV09-F07,تاريخ الأثر,required,pending,,
@@ -886,10 +886,10 @@ INV09,INV09-F21,أنشأه,system,pending,,
 INV09,INV09-F22,وقت الإنشاء,system,pending,,
 INV09,INV09-F23,رقم إصدار التعديل,system,pending,,
 INV09,INV09-F24,آخر تعديل,system,pending,,
-INV10,INV10-F01,المعرف الداخلي,system,pending,,
-INV10,INV10-F02,الشركة,system,pending,,
-INV10,INV10-F03,الفرع,required,pending,,
-INV10,INV10-F04,السنة,system,pending,,
+INV10,INV10-F01,المعرف الداخلي,system,partial,CompanyEntity.Id: generated UUID; no document API,
+INV10,INV10-F02,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV10,INV10-F03,الفرع,required,partial,BranchId: required company-scoped FK,
+INV10,INV10-F04,السنة,system,partial,FiscalYearId: required company-scoped FK,
 INV10,INV10-F05,رقم المستند,system,pending,,
 INV10,INV10-F06,تاريخ الوثيقة,required,pending,,
 INV10,INV10-F07,تاريخ الأثر,required,pending,,
@@ -922,10 +922,10 @@ INV11,INV11-F10,أنشأه,system,pending,,
 INV11,INV11-F11,وقت الإنشاء,system,pending,,
 INV11,INV11-F12,رقم إصدار التعديل,system,pending,,
 INV11,INV11-F13,آخر تعديل,system,pending,,
-INV12,INV12-F01,الشركة,system,pending,,
-INV12,INV12-F02,الفرع,conditional,pending,,
-INV12,INV12-F03,الحالة,system,pending,,
-INV12,INV12-F04,المخزن,required,pending,,
+INV12,INV12-F01,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV12,INV12-F02,الفرع,conditional,partial,BranchId: optional company-scoped FK,
+INV12,INV12-F03,الحالة,system,partial,StatusCode: opaque shape only; no approved lifecycle,
+INV12,INV12-F04,المخزن,required,partial,WarehouseId: required company-scoped FK,
 INV12,INV12-F05,وقت القطع,required,pending,,
 INV12,INV12-F06,طريقة التعامل مع الحركة,required,pending,,
 INV12,INV12-F07,لجنة العد,required,pending,,
@@ -937,10 +937,10 @@ INV12,INV12-F12,أنشأه,system,pending,,
 INV12,INV12-F13,وقت الإنشاء,system,pending,,
 INV12,INV12-F14,رقم إصدار التعديل,system,pending,,
 INV12,INV12-F15,آخر تعديل,system,pending,,
-INV13,INV13-F01,المعرف الداخلي,system,pending,,
-INV13,INV13-F02,الشركة,system,pending,,
-INV13,INV13-F03,الفرع,required,pending,,
-INV13,INV13-F04,السنة,system,pending,,
+INV13,INV13-F01,المعرف الداخلي,system,partial,CompanyEntity.Id: generated UUID; no document API,
+INV13,INV13-F02,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV13,INV13-F03,الفرع,required,partial,BranchId: required company-scoped FK,
+INV13,INV13-F04,السنة,system,partial,FiscalYearId: required company-scoped FK,
 INV13,INV13-F05,رقم المستند,system,pending,,
 INV13,INV13-F06,تاريخ الوثيقة,required,pending,,
 INV13,INV13-F07,تاريخ الأثر,required,pending,,
@@ -960,10 +960,10 @@ INV13,INV13-F20,أنشأه,system,pending,,
 INV13,INV13-F21,وقت الإنشاء,system,pending,,
 INV13,INV13-F22,رقم إصدار التعديل,system,pending,,
 INV13,INV13-F23,آخر تعديل,system,pending,,
-INV14,INV14-F01,المعرف الداخلي,system,pending,,
-INV14,INV14-F02,الشركة,system,pending,,
-INV14,INV14-F03,الفرع,required,pending,,
-INV14,INV14-F04,السنة,system,pending,,
+INV14,INV14-F01,المعرف الداخلي,system,partial,CompanyEntity.Id: generated UUID; no document API,
+INV14,INV14-F02,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV14,INV14-F03,الفرع,required,partial,BranchId: required company-scoped FK,
+INV14,INV14-F04,السنة,system,partial,FiscalYearId: required company-scoped FK,
 INV14,INV14-F05,رقم المستند,system,pending,,
 INV14,INV14-F06,تاريخ الوثيقة,required,pending,,
 INV14,INV14-F07,تاريخ الأثر,required,pending,,
@@ -984,10 +984,10 @@ INV14,INV14-F21,أنشأه,system,pending,,
 INV14,INV14-F22,وقت الإنشاء,system,pending,,
 INV14,INV14-F23,رقم إصدار التعديل,system,pending,,
 INV14,INV14-F24,آخر تعديل,system,pending,,
-INV15,INV15-F01,الشركة,system,pending,,
-INV15,INV15-F02,الفرع,conditional,pending,,
-INV15,INV15-F03,الحالة,system,pending,,
-INV15,INV15-F04,من تاريخ,required,pending,,
+INV15,INV15-F01,الشركة,system,partial,CompanyEntity.CompanyId: tenant key,
+INV15,INV15-F02,الفرع,conditional,partial,BranchId: optional company-scoped FK,
+INV15,INV15-F03,الحالة,system,partial,StatusCode: opaque shape only; no approved lifecycle,
+INV15,INV15-F04,من تاريخ,required,partial,FromDate: SQL date; non-default only,
 INV15,INV15-F05,إلى تاريخ,required,pending,,
 INV15,INV15-F06,المخزن,optional,pending,,
 INV15,INV15-F07,سبب التشغيل,required,pending,,
@@ -1041,23 +1041,23 @@ SAL01,SAL01-F25,الشارع,conditional,pending,,
 SAL01,SAL01-F26,رقم المبنى,conditional,pending,,
 SAL01,SAL01-F27,الرمز البريدي,conditional,pending,,
 SAL01,SAL01-F28,الرقم الإضافي,conditional,pending,,
-SAL02,SAL02-F01,الشركة,system,pending,,
-SAL02,SAL02-F02,الفرع,conditional,pending,,
-SAL02,SAL02-F03,الحالة,system,pending,,
-SAL02,SAL02-F04,اسم القائمة,required,pending,,
-SAL02,SAL02-F05,العملة,required,pending,,
-SAL02,SAL02-F06,من تاريخ,required,pending,,
-SAL02,SAL02-F07,إلى تاريخ,optional,pending,,
-SAL02,SAL02-F08,شامل الضريبة,required,pending,,
-SAL02,SAL02-F09,الصنف,required,pending,,
-SAL02,SAL02-F10,الوحدة,required,pending,,
-SAL02,SAL02-F11,السعر,required,pending,,
-SAL02,SAL02-F12,حد الخصم,required,pending,,
-SAL02,SAL02-F13,حد الكمية,optional,pending,,
-SAL02,SAL02-F14,أنشأه,system,pending,,
-SAL02,SAL02-F15,وقت الإنشاء,system,pending,,
-SAL02,SAL02-F16,رقم إصدار التعديل,system,pending,,
-SAL02,SAL02-F17,آخر تعديل,system,pending,,
+SAL02,SAL02-F01,الشركة,system,partial,CompanyId: tenant FK Companies,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F02,الفرع,conditional,partial,BranchId: nullable same-company FK Branches,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F03,الحالة,system,partial,Status: opaque nvarchar(64); no state graph,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F04,اسم القائمة,required,partial,Name: required nvarchar(200),No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F05,العملة,required,partial,CurrencyId: same-company FK Currencies,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F06,من تاريخ,required,partial,EffectiveFrom: SQL date,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F07,إلى تاريخ,optional,partial,EffectiveTo: nullable SQL date; not before EffectiveFrom,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F08,شامل الضريبة,required,partial,IncludesTax: bit snapshot only; no tax calculation,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F09,الصنف,required,partial,ItemId: part of same-company ItemUnit FK,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F10,الوحدة,required,partial,UnitId: part of same-company ItemUnit FK; rejects mismatched pair,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F11,السعر,required,partial,"Price: decimal(20,6), nonnegative",No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F12,حد الخصم,required,partial,"DiscountLimit: decimal(20,6), nonnegative; policy/upper bound pending",No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F13,حد الكمية,optional,partial,"QuantityThreshold: nullable decimal(20,6), nonnegative",No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F14,أنشأه,system,partial,CreatedBy: stored only; no actor API,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F15,وقت الإنشاء,system,partial,CreatedAt: datetimeoffset(7),No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F16,رقم إصدار التعديل,system,partial,Revision: positive SQL integer; no edit workflow,No public API; SQL 050 + EF mapping only; EF writes blocked
+SAL02,SAL02-F17,آخر تعديل,system,partial,LastModifiedAt: datetimeoffset(7) >= CreatedAt,No public API; SQL 050 + EF mapping only; EF writes blocked
 SAL03,SAL03-F01,المعرف الداخلي,system,pending,,
 SAL03,SAL03-F02,الشركة,system,pending,,
 SAL03,SAL03-F03,الفرع,required,pending,,
@@ -1228,22 +1228,22 @@ SAL08,SAL08-F20,أنشأه,system,pending,,
 SAL08,SAL08-F21,وقت الإنشاء,system,pending,,
 SAL08,SAL08-F22,رقم إصدار التعديل,system,pending,,
 SAL08,SAL08-F23,آخر تعديل,system,pending,,
-SAL09,SAL09-F01,المعرف الداخلي,system,pending,,
-SAL09,SAL09-F02,الشركة,system,pending,,
-SAL09,SAL09-F03,الرمز,required,pending,,
-SAL09,SAL09-F04,الاسم العربي,required,pending,,
-SAL09,SAL09-F05,الاسم الإنجليزي,optional,pending,,
-SAL09,SAL09-F06,فعال,required,pending,,
-SAL09,SAL09-F07,ملاحظات,optional,pending,,
-SAL09,SAL09-F08,الموظف,optional,pending,,
-SAL09,SAL09-F09,المنطقة,required,pending,,
-SAL09,SAL09-F10,المشرف,optional,pending,,
-SAL09,SAL09-F11,حساب العهدة,optional,pending,,
-SAL09,SAL09-F12,سياسة العمولة,optional,pending,,
-SAL09,SAL09-F13,أنشأه,system,pending,,
-SAL09,SAL09-F14,وقت الإنشاء,system,pending,,
-SAL09,SAL09-F15,رقم إصدار التعديل,system,pending,,
-SAL09,SAL09-F16,آخر تعديل,system,pending,,
+SAL09,SAL09-F01,المعرف الداخلي,system,partial,SalesRepresentative.Id: tenant PK,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F02,الشركة,system,partial,CompanyId: FK Companies,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F03,الرمز,required,partial,"Code: nvarchar(32), unique per company",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F04,الاسم العربي,required,partial,Name: nvarchar(200),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F05,الاسم الإنجليزي,optional,partial,EnglishName: nullable nvarchar(200),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F06,فعال,required,partial,IsActive: stored only,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F07,ملاحظات,optional,partial,Notes: nullable nvarchar(2000),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F08,الموظف,optional,partial,"EmployeeId: opaque nullable GUID; HR03 missing, no FK",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F09,المنطقة,required,partial,Region: required nvarchar(200),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F10,المشرف,optional,partial,SupervisorId: opaque nullable GUID; target semantics unapproved,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F11,حساب العهدة,optional,partial,CustodyAccountId: nullable composite FK Accounts within company,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F12,سياسة العمولة,optional,partial,"CommissionPolicyId: opaque nullable GUID; SAL10 missing, no FK",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F13,أنشأه,system,partial,"CreatedBy: nvarchar(200), no actor API",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F14,وقت الإنشاء,system,partial,CreatedAt: datetimeoffset(7),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F15,رقم إصدار التعديل,system,partial,Revision: positive SQL integer; no edit workflow,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL09,SAL09-F16,آخر تعديل,system,partial,LastModifiedAt: datetimeoffset(7) >= CreatedAt,No public API; SQL 049 + EF mapping only; EF writes blocked
 SAL10,SAL10-F01,الشركة,system,pending,,
 SAL10,SAL10-F02,الفرع,conditional,pending,,
 SAL10,SAL10-F03,الحالة,system,pending,,
@@ -1327,49 +1327,49 @@ SAL14,SAL14-F25,أنشأه,system,pending,,
 SAL14,SAL14-F26,وقت الإنشاء,system,pending,,
 SAL14,SAL14-F27,رقم إصدار التعديل,system,pending,,
 SAL14,SAL14-F28,آخر تعديل,system,pending,,
-SAL15,SAL15-F01,المعرف الداخلي,system,pending,,
-SAL15,SAL15-F02,الشركة,system,pending,,
-SAL15,SAL15-F03,الرمز,required,pending,,
-SAL15,SAL15-F04,الاسم العربي,required,pending,,
-SAL15,SAL15-F05,الاسم الإنجليزي,optional,pending,,
-SAL15,SAL15-F06,فعال,required,pending,,
-SAL15,SAL15-F07,ملاحظات,optional,pending,,
-SAL15,SAL15-F08,المجموعة الأب,optional,pending,,
-SAL15,SAL15-F09,قائمة الأسعار,required,pending,,
-SAL15,SAL15-F10,حد ائتمان افتراضي,required,pending,,
-SAL15,SAL15-F11,عملة الحد,required,pending,,
-SAL15,SAL15-F12,شروط الدفع,required,pending,,
-SAL15,SAL15-F13,حساب الرقابة,required,pending,,
-SAL15,SAL15-F14,أنشأه,system,pending,,
-SAL15,SAL15-F15,وقت الإنشاء,system,pending,,
-SAL15,SAL15-F16,رقم إصدار التعديل,system,pending,,
-SAL15,SAL15-F17,آخر تعديل,system,pending,,
-PUR01,PUR01-F01,المعرف الداخلي,system,pending,,
-PUR01,PUR01-F02,الشركة,system,pending,,
-PUR01,PUR01-F03,الرمز,required,pending,,
-PUR01,PUR01-F04,الاسم العربي,required,pending,,
-PUR01,PUR01-F05,الاسم الإنجليزي,optional,pending,,
-PUR01,PUR01-F06,فعال,required,pending,,
-PUR01,PUR01-F07,ملاحظات,optional,pending,,
-PUR01,PUR01-F08,الاسم القانوني,required,pending,,
-PUR01,PUR01-F09,حساب الرقابة,required,pending,,
-PUR01,PUR01-F10,عملة التعامل,required,pending,,
-PUR01,PUR01-F11,شروط السداد,required,pending,,
-PUR01,PUR01-F12,أيام الاستحقاق,required,pending,,
-PUR01,PUR01-F13,الرقم الضريبي,conditional,pending,,
-PUR01,PUR01-F14,الدولة,required,pending,,
-PUR01,PUR01-F15,المستفيد البنكي,optional,pending,,
-PUR01,PUR01-F16,IBAN,conditional,pending,,
-PUR01,PUR01-F17,أنشأه,system,pending,,
-PUR01,PUR01-F18,وقت الإنشاء,system,pending,,
-PUR01,PUR01-F19,رقم إصدار التعديل,system,pending,,
-PUR01,PUR01-F20,آخر تعديل,system,pending,,
-PUR01,PUR01-F21,المدينة,required,pending,,
-PUR01,PUR01-F22,الحي,optional,pending,,
-PUR01,PUR01-F23,الشارع,required,pending,,
-PUR01,PUR01-F24,رقم المبنى,conditional,pending,,
-PUR01,PUR01-F25,الرمز البريدي,conditional,pending,,
-PUR01,PUR01-F26,الرقم الإضافي,conditional,pending,,
+SAL15,SAL15-F01,المعرف الداخلي,system,partial,CustomerGroup.Id: tenant PK,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F02,الشركة,system,partial,CompanyId: FK Companies,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F03,الرمز,required,partial,"Code: nvarchar(32), unique per company",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F04,الاسم العربي,required,partial,Name: nvarchar(200),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F05,الاسم الإنجليزي,optional,partial,EnglishName: nullable nvarchar(200),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F06,فعال,required,partial,IsActive: stored only,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F07,ملاحظات,optional,partial,Notes: nullable nvarchar(2000),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F08,المجموعة الأب,optional,partial,ParentGroupId: nullable same-company self FK,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F09,قائمة الأسعار,required,partial,PriceListId: required same-company FK SalesPriceLists; priority/active checks pending,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F10,حد ائتمان افتراضي,required,partial,"DefaultCreditLimit: decimal(20,6), nonnegative",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F11,عملة الحد,required,partial,CreditCurrencyId: same-company FK Currencies; active check pending,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F12,شروط الدفع,required,partial,PaymentTermId: same-company FK PaymentTerms; SYS16 writes blocked,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F13,حساب الرقابة,required,partial,ControlAccountId: same-company FK Accounts; active check pending,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F14,أنشأه,system,partial,"CreatedBy: nvarchar(200), no actor API",No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F15,وقت الإنشاء,system,partial,CreatedAt: datetimeoffset(7),No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F16,رقم إصدار التعديل,system,partial,Revision: positive SQL integer; no edit workflow,No public API; SQL 049 + EF mapping only; EF writes blocked
+SAL15,SAL15-F17,آخر تعديل,system,partial,LastModifiedAt: datetimeoffset(7) >= CreatedAt,No public API; SQL 049 + EF mapping only; EF writes blocked
+PUR01,PUR01-F01,المعرف الداخلي,system,partial,Supplier.Id (server GUID),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F02,الشركة,system,partial,Supplier.CompanyId (tenant key),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F03,الرمز,required,partial,Supplier.Code nvarchar(32) (unique company code),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F04,الاسم العربي,required,partial,Supplier.Name nvarchar(200),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F05,الاسم الإنجليزي,optional,partial,Supplier.EnglishName nullable nvarchar(200),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F06,فعال,required,partial,"Supplier.IsActive stored only, no status action",internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F07,ملاحظات,optional,partial,Supplier.Notes nullable nvarchar(2000),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F08,الاسم القانوني,required,partial,Supplier.LegalName nvarchar(200),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F09,حساب الرقابة,required,partial,Supplier.ControlAccountId tenant FK,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F10,عملة التعامل,required,partial,Supplier.TransactionCurrencyId tenant FK,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F11,شروط السداد,required,partial,Supplier.PaymentTerms required nvarchar(2000),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F12,أيام الاستحقاق,required,partial,Supplier.DueDays int nonnegative,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F13,الرقم الضريبي,conditional,partial,Supplier.TaxNumber nullable; conditional country policy unavailable,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F14,الدولة,required,partial,Supplier.CountryId GUID required; country catalogue FK unavailable,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F15,المستفيد البنكي,optional,partial,Supplier.BankBeneficiary nullable; separate reviewer unavailable,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F16,IBAN,conditional,partial,Supplier.Iban nullable; country-specific validation unavailable,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F17,أنشأه,system,partial,Supplier.CreatedBy actor stored (no API),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F18,وقت الإنشاء,system,partial,Supplier.CreatedAt datetimeoffset(7) required,internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F19,رقم إصدار التعديل,system,partial,Supplier.Revision initialized at 1 (no edit API),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F20,آخر تعديل,system,partial,Supplier.LastModifiedAt initialized at creation (no edit API),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F21,المدينة,required,partial,Supplier.City required nvarchar(200),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F22,الحي,optional,partial,Supplier.District nullable nvarchar(200),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F23,الشارع,required,partial,Supplier.Street required nvarchar(200),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F24,رقم المبنى,conditional,partial,Supplier.BuildingNumber nullable nvarchar(32),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F25,الرمز البريدي,conditional,partial,Supplier.PostalCode nullable nvarchar(32),internal SQL/EF 049 only; no authorized PUR01 HTTP API
+PUR01,PUR01-F26,الرقم الإضافي,conditional,partial,Supplier.AdditionalNumber nullable nvarchar(32),internal SQL/EF 049 only; no authorized PUR01 HTTP API
 PUR02,PUR02-F01,الشركة,system,pending,,
 PUR02,PUR02-F02,الفرع,conditional,pending,,
 PUR02,PUR02-F03,الحالة,system,pending,,

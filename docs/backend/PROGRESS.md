@@ -1,3 +1,48 @@
+## GL09-C01 — أساس تحقق الجدولة دون تفعيل قيد مالي (5 نوفمبر 2026)
+
+أضيف `AccrualScheduleTotalPolicy` كحارس حسابي **نقي وغير تشغيلي** لشاشة GL09:
+يقبل مجموع مبالغ الجدولة إذا طابق إجمالي العقد تمامًا دون التقريب، ويرفض
+تكرار معرّف الفترة، أو غياب بيانات الفترة أو تجاوز حدود جمع `decimal`.
+كما يرفض أي `GL09-F14/F20` خارج `Decimal(20,6)` أو يتطلب تقريبًا
+صامتًا قبل التخزين، بما في ذلك سطران بدقة زائدة مجموعهما صحيح ظاهريًا.
+حالات القبول والرفض موثقة بأربعة اختبارات في `AccrualScheduleTotalTests`.
+لا يستدعي الحارس دفتر الأستاذ أو قاعدة البيانات أو أي واجهة HTTP، ولا ينشئ
+قيودًا أو ترحيلًا أو تدقيقًا أو صلاحيات. يجب أن يتحقق مسار الكتابة المستقبلي
+من هوية الشركة والفرع والفترة والمراجع ضمن قاعدة البيانات وبالمعاملة الذرية.
+
+**حالة GL09-C01: جزئي فقط.** لا توجد بعد سياسة معتمدة لقائمة `GL09-F13`
+«نوع الجدولة»، أو عقد تشغيل/اعتماد التكامل مع GL04، ولا توجد دورة مستند GL09
+متكاملة أو اختبارات SQL/HTTPS/JWT/OpenAPI لها. لا يجوز استخدام هذه الدالة
+للترحيل أو إعلان اكتمال شاشة GL09 أو مهمة C01 حتى إقرار الحواجز التشغيلية.
+الأصل `muhaseb-erp-analysis/docs/modules/GL.md` لم يتغير، ولم تُحدّث
+مصفوفات التغطية لتوحي باكتمال الحقول. اجتاز التحقق المحلي 533/533 والـ CI رقم 41914117549 على SHA 33c81a1 بنجاح؛ تبقى المهمة جزئية.
+
+
+## INV07/08/09/10/12/13/14/15-FG01 — isolated header-scope foundations (5 November 2026)
+
+**Selection:** Notion V1 numbered FG01 tasks only; original inventory analysis, field registry and module-INV diagram. Independent PRE work only; fail-closed INT/AC. INV07 remains blocked by PUR06/PUR07/IMP05/GL06 source contracts; INV08 by valuation + SAL05/MFG03; INV09/10 by in-transit and sender/receiver contracts; INV11 excluded because SAL04 is domain-only and its required SalesOrder provider is not SQL/EF-ready; INV12 by complete stock ledger/cutoff/blind-count replay; INV13 by INV12 and GL03 valuation; INV14 by quality/issue/disposal approval; INV15 by cost layers, IMP06 and GL10.
+
+**Implemented PRE scope:** eight separate tenant-scoped header-scope entities/tables for INV07-FG01, INV08-FG01, INV09-FG01, INV10-FG01, INV12-FG01, INV13-FG01, INV14-FG01 and INV15-FG01. Six tables contain CompanyEntity identity/tenant/version plus required BranchId and FiscalYearId (composite tenant FKs); INV12 has optional BranchId, opaque StatusCode and required WarehouseId; INV15 has optional BranchId, opaque StatusCode and non-default FromDate. Migration 050 is atomic/idempotent and creates 8 tables / 23 tenant-scoped FKs. Field mappings are partial with no API. An EF guard rejects Added/Modified/Deleted across all eight types. No guessed status enum, source discriminator, order/sales reference, valuation/cost, movement, approval or GL route.
+
+**Acceptance boundary:** InventoryDocumentFoundationTests checks field scope and invalid empty identifiers/status/date; InventoryDocumentFoundationSqlIntegration tests migration rollback on collision, idempotency, all eight SQL/EF table mappings, tenant branch/year/warehouse FKs, status/date checks and fail-closed EF writes with no audit/outbox/journal effects. Local Release verification: 546/546 PASS; live SQL unavailable locally and must be verified in CI on the pushed SHA. Eight Notion FG01 tasks are partial after local and SQL CI evidence; each parent screen remains blocked. INV11-FG01 is explicitly blocked in Notion because the SAL04 SalesOrder provider is not SQL/EF-ready; no implementation or invented reference was added. No original analysis or production data is changed.
+
+---
+
+## INV16-01 — قاعدة أسباب الحركات المخزنية الآمنة دون تشغيل السياسة (5 نوفمبر 2026)
+
+**المصدر المعتمد:** Notion V1 (INV16-01، INV16-FG01..FG04) والتحليل الأصلي `muhaseb-erp-analysis/docs/modules/INV.md`؛ لا يعتمد على مخططات التخطيط الإضافية. حالة مهمة INV16-01 الأم `محجوب` إلى أن تُعتمد قيم اتجاه الحركة والحالة، شروط حساب المقابل ومركز التكلفة، وحدود مسارات الاعتماد/الفرع والمستندات INV07/INV08/INV13/INV14.
+
+**الجزء المنفذ:** إضافة Domain `InventoryMovementReason` وEF `ConfigureInventoryMovementReason` وترقية SQL `049_inventory_movement_reason_foundation.sql` لـ15 حقلاً (المعرّفات التقنية والأصلية والتدقيق)، مع علاقات tenant مركبة للشركة والفرع والحساب المقابل ومسار الاعتماد؛ ترقية XACT_ABORT مع قفل مخطط وإعادة تشغيل آمنة دون بذور. قيم الاتجاه والحالة رموز شكلية غير معتمدة ولا تُعامل كقائمة سياسية نهائية؛ لا تفترض فريدة رمز السبب عبر الفروع. حارس EF `inventory_movement_reason_policy_unavailable` يرفض INSERT/UPDATE/DELETE إلى حين اعتماد دورة الأعمال والموافقة. لا API ولا ترحيل ولا ميزان تكلفة أو حركة مخزون.
+
+**الاختبارات:** `InventoryMovementReasonFoundationTests` تتحقق من الحقول والعزل والشروط الشكلية ورفض المراجع/التوقيت غير الصالح؛ `InventoryMovementReasonSqlIntegration` تختبر ترقية 048→049 الذرية والمتكررة، roundtrip بالـ SQL المعزول في CI، علاقات tenant والمرجع ومسار الاعتماد والتدقيق، وحظر كتابة EF/غياب أثر GL/outbox. **تحقق محلي نهائي:** `python3 backend/scripts/verify.py --dotnet /root/.dotnet/dotnet --artifacts /tmp/ameen-inv-v1-inv16-final` = **542/542 PASS؛ 0 FAILED**، بناء Release، traceability وSQL-model وHTTP/OpenAPI؛ **لم يُشغل SQL Server الحي محليًا**. يجب إثبات CI SQL ناجح على SHA النهائي قبل اعتماد الحزمة. لا تُحول المهمة الأم أو أي شاشة تشغيلية إلى مكتملة.
+
+
+## CASH — عزل كتابة EF للكيانات المحاسبية البنيوية (5 نوفمبر 2026)
+
+حزمة قبول سلبية مستقلة فوق أصل CASH SQL 032–040: فحص صريح عبر `CashUnauthorizedEfMutationSqlIntegration` يثبت رفض **UPDATE وDELETE** للكيانات البنيوية المخزنة فعلًا في SQL المؤقت، وليس فقط رفض INSERT. النطاق يشمل CASH02 (البنك)، CASH03 (سند القبض وسطر التخصيص)، CASH06 (العهدة وسطرها)، CASH07/08 (شيكان وارد وصادر)، CASH09 (حركتان لشيكين بنوع مختلف)، CASH10 (المطابقة وسطرها)، وCASH11 (محضر الجرد وسطره)، أي 13 كيانًا و26 محاولة كتابة محرّمة. لكل محاولة يتحقق الاختبار من رمز منع الكتابة الفعلي، وبقاء Version في SQL، وعدم تغير عدادات AuditEvent/OutboxEvent/JournalEntry. استخدام سجلات مولدة فقط في قاعدة اختبارات SQL معزولة؛ لا تغيير في بيانات الإنتاج أو سياسة المستندات.
+
+تدقيق DOMAIN إضافي لحقل الإنشاء: `CashAdvance` و`BankReconciliation` يرفضان `CreatedAt=default`، مع اختبارات سالبة، دون تعديل سعر الصرف أو قواعد تسوية العهدة/البنك. لا تفعيل لأي CRUD/ترحيل/اعتماد؛ CASH02/03/06/07/08/09/10/11 تبقى **جزئية تشغيليًا**. `CASH04` و`CASH05-02` باقيتان محجوبتين لاعتمادياتهُمَا. فحوص `verify.py` المحلية لا تتضمن SQL Server الحي؛ يجب تأكيد حالة CI وSHA الحزمة النهائي قبل اعتماد دليل SQL.
+
 ## GL11-T02 / GL12 — cross-tenant period read acceptance (4 November 2026)
 
 **Independent regression only; no new accounting rule:** `RateAndCloseTests.cs` verifies that an actor explicitly authorized for Read, Audit, PeriodClose and PeriodReopen in a *different* company cannot query the source company's existing period via GL11 close preview, GL11 execution history, or GL12 reopen-only history. All three must return `reference_not_found`; source period version/status and audit, idempotency, journal, and outbox counts remain unchanged. The original period has real close/reopen audit decisions in the test, rather than an empty-history false positive.
@@ -8,9 +53,52 @@
 
 فحص مستقل للحد الأدنى لسلامة GL14-F11: يمنع نموذج JournalDocumentType إنشاء البطاقة بوقت CreatedAt الافتراضي غير المعيّن؛ اختبار قبول سلبي يثبت الرفض وعدم مساس المحاولة اللاحقة الفاشلة بإصدار البطاقة وتدقيقها وحالة تفعيلها. لا تفعيل للكتابة عبر EF/API ولا سياسة موافقات جديدة. يظل GL14-FG04 **جزئيًا / قيد التحقق** حتى اعتماد SYS09 ومسار التوقيع وتكامل GL03 والتحقق SQL/HTTPS/JWT/OpenAPI التشغيلي. الفرع المعزول temp/gl14-audit-createdat-20261104-chat2 للمراجعة، لا دمج مباشر.
 
+
+## CORE DGM-28 — تدقيق مخطط الكيانات المفاهيمي (4 نوفمبر 2026)
+
+أُضيف فاحص مستقل لـ ER diagram الأصلي يحرس 25 كيانًا و32 علاقة بمضاعفاتها وكارديناليتها، وفهرس SVG والتتبع، مع 9 اختبارات قبول موجبة وسالبة. التقرير: [core-er-conceptual-audit-20261104.md](core-er-conceptual-audit-20261104.md). نجحت الاختبارات المحلية Python 63/63؛ وما زال CI على رأس PR والاختبارات التشغيلية لعقود CORE-02/03 ومصادر SYS/SAL/INV/TAX مطلوبة. مخطط ER مفاهيمي وليس DDL؛ لم تُغيّر ملفات التحليل ولم تُفعّل أية وظائف أو سياسات مالية.
+
+## CORE DGM-20–27 — تدقيق مخططات التدفقات الأصلية (4 نوفمبر 2026)
+
+أُضيف فاحص قراءة فقط لثمانية مخططات تدفق (66 عقدة و68 حافة) يراجع المصدر Mermaid وSVG وفهرس المخططات وسجل التتبع ووسوم قرارات المسارات الأساسية، مع 7 اختبارات قبول موجبة/سالبة جديدة. التقرير: [core-process-diagrams-audit-20261104.md](core-process-diagrams-audit-20261104.md). الاختبارات المحلية Python 54/54 PASS؛ اختبار .NET/SQL وCI على رأس PR لا يزالان شرط تسليم. لا تُفسّر المطابقة الهيكلية على أنها تنفيذ لعمليات المستندات أو المخزون أو الضرائب أو الذمم؛ حالات التتبع الوظيفية لم تتغير، ولا يغلق DGM-20–27 قبل أدلة التنفيذ والتكامل والمشرف.
+
+
+## SYS02-AC03/AC04 وSYS04-AC03/AC04 — رفض نفاد الإصدار دون تعديل البطاقة (4 نوفمبر 2026)
+
+**حدود التسليم المستقلة:** أضيف فحص استباقي لنفاد Revision قبل تعديل بيانات أو حالة بطاقة الفرع SYS02 أو العملة SYS04، بدلاً من اكتشاف النفاد في Advance بعد تعديل الذاكرة. أربع حالات قبول نطاقها **المجال فقط** ضمن BranchTests.cs وCurrencyTests.cs: رفض تعديل بيانات الفرع، تعطيله، تعديل بيانات/دقة العملة، وتعطيلها عندما يكون الإصدار int.MaxValue؛ لكل حالة يتحقق الاختبار من رمز خطأ التعارض وثبات الحقول والحالة وVersion وRevision. لا تغيير لأرقام الإصدارات عند الرفض ولا لسلوك العمليات الاعتيادية.
+
+**أصل المتطلبات:** SYS02-F16/F17 وSYS04-F14/F15، والضوابط المشتركة لمنع فقدان التعديلات وسلامة حالة البطاقة. معرفات الأطفال المقترحة/المستقلة: SYS02-AC03 وSYS02-AC04 وSYS04-AC03 وSYS04-AC04؛ لا تعني قبول SYS02-02 أو SYS04-02 أو اكتمال أي شاشة. يلزم إثبات CI على SHA النهائي وربط Notion قبل احتساب الأطفال مكتملين.
+
+**الاستثناءات والاعتماديات:** لا يثبت هذا التحقق سلامة SQL/HTTPS/JWT/OpenAPI عند نفاد الإصدار في بيانات حقيقية؛ يحتاج قبولًا منفصلاً في طبقة الخدمة/قاعدة البيانات متى توفرت بيئة اختبار معزولة. لم يتغير التحليل الأصلي أو مخططات البيانات أو الصلاحيات أو الأرقام المحاسبية؛ لم تتطلب الحقول القائمة تعديلًا في traceability أو OpenAPI.
+
+
+## PUR01-01 / PUR01-FG01–FG07 — بطاقة المورد، أساس بنيوي محجوب تشغيليًا (5 نوفمبر 2026)
+
+أضيف على فرع `temp/pur01-supplier-foundation-20261105-chat` كيان `Supplier` مطابق لمجموعات حقول PUR01 الأصلية، وتهيئة EF ذات مفاتيح شركة مركبة، وترقية SQL `049_suppliers_foundation.sql` ذرية قابلة للإعادة دون إنشاء مورد وهمي، ومجموعة اختبارات المجال وSQL المعزول. لا تعديل لملفات `muhaseb-erp-analysis`. حالة الشاشة والمهام دقيقة الحقول **جزئية** فقط؛ لا تسجّل كاكتمل لمجرد توفر عمود SQL.
+
+التعطيل المتعمد لجميع عمليات EF على المورد (`supplier_policy_unavailable`) يحمي التغيير البنكي الذي يحتاج مراجعًا آخر، والتحقق الضريبي/IBAN المحدد بالدولة غير المعتمد، وحقوق الوصول والذمم وربط PUR03/PUR11/GL/CASH. **لا endpoint تشغيلي ولا عمليات شراء/مخزون/أستاذ أو ذمم**. يلزم اعتماد العقود الأصلية وتنفيذ API/HTTP/JWT وعزل وتزامن ومراجعة البنك قبل رفع حالة اكتمال PUR01-01.
+
+فحوص التنفيذ: `SupplierFoundationTests` + `SupplierSqlIntegration` (الترقية المتكررة، rollback، خطأ صاحب نسخة SQL، 27 عمودًا، مراجع الشركة/الحساب/العملة، كود المورد الفريد وعزل tenant ورفض تعديل EF). نجاح SQL الحي يجب إثباته منفصلًا في CI على **HEAD**، وليس عبر فحوص .NET المحلية. فحص `backend/scripts/verify.py` على الشجرة الحالية: **534/534 PASS، 0 failed** باستخدام .NET 10، شمل بناء Release وحالات المجال وHTTP/OpenAPI والتحليل والمخططات وtraceability؛ `liveSqlRequested=false` لعدم وجود `AMEEN_TEST_SQL_CONNECTION` معزول. لا تعني النتيجة اجتياز SQL الحي أو إغلاق المهمة.
+
 ## CORE DGM-01–15 — تحقق آلي من خرائط التنقل (4 نوفمبر 2026)
 
 أضيف حارس قراءة فقط يطابق 15 خريطة تنقل أصلية مع 150 شاشة في سجل التحليل، ويتحقق من المعرّفات والتسميات والفئات والحواف وصحة SVG، مع 8 اختبارات قبول موجبة وسالبة في `backend/scripts/tests/test_module_diagram_navigation.py`. يرجع إلى [تقرير التدقيق](core-module-diagram-navigation-audit-20261104.md). المخرجات لا تمثل تبعيات بناء أو اكتمال الشاشات. التنفيذ على `temp/core-diagram-nav-audit-20261104-chat` ولا دمج مباشر؛ يحتاج اختبار CI على HEAD النهائي ومراجعة SUPERVISOR قبل إغلاق مهام DGM-01–15.
+
+## INV06-FG07 / INV06-OP05 — حدود التدقيق الذري والعكس (5 نوفمبر 2026)
+
+- **فحص الجاهزية:** Notion V2 View Mode، عرض `READY | INV — المهام الجاهزة`: **0** مهام مصنفة جاهزة ومعتمدة للتنفيذ. عرض INV V2 الدقيق: `INV06-FG07` و`INV06-OP05` مكتملتان سابقًا، لذلك هذه حزمة تقوية رجوعية ولا يُحتسب منها إغلاق جديد.
+- **الحماية:** يرفض `InventoryOpening` في Domain هوية المنشئ الفارغة وتوقيت التدقيق الافتراضي، ويفحص صلاحية وقت التغيير ورقم `Revision` **قبل** أي تحديث لحقول الطلب في `Edit`/`Transition`/`CorrectReversal`/`Post`. يحفظ هوية منفذ الاعتماد والترحيل نصًا صحيحًا. لم تُضف سياسة موافقة أو سعر صرف أو تكلفة جديدة.
+- **عكس الافتتاح:** تحقق `SetReversalSource` من سبب العكس قبل حجز `ReversesOpeningId` أو رفع الإصدار؛ فشل السبب الفارغ أو الطويل لا يترك مرجعًا جزئيًا أو أثرًا تاريخيًا.
+- **القبول:** خمس حالات INV06-FG07 جديدة وحالة INV06-OP05؛ تغطي منشئًا/وقتًا مفقودين، اعتمادًا وترحيلًا بفاعل أو وقت غير صالح، نفاد رقم الإصدار عند تعديل/تقديم/ترحيل/تصحيح العكس، وحماية مرجع العكس عند سبب مرفوض. التحققات السلبية لا تكتب مخزونًا أو قيدًا أو outbox. لم تُعدل مخططات أو ملفات التحليل أو قاعدة الإنتاج.
+- **التحقق المحلي:** `backend/scripts/verify.py --dotnet /root/.dotnet/dotnet --artifacts /tmp/ameen-inv-agent-20261105-final` أعطى **537/537 PASS؛ 0 FAILED** بعد بناء Release وفحوص البنية/التتبع وHTTP/OpenAPI. لم يُشغل SQL Server حيًا محليًا. يُلزم CI GitHub مع SQL Server معزول على SHA النهائي ولا يُعلن نجاحه قبل نتيجة الفحص. تبقى تكاملات GL02/FX والجودة والقطع والاستلام INV07+ خارج نطاق هذا التعديل، وليست مهام مكتملة جديدة.
+
+## INV06-FG05 — حماية ترتيب سطر الافتتاح ومرجعه (5 نوفمبر 2026)
+
+- تزامن فرع `inv` مع أحدث `origin/main` (SHA `4ddca22724a0a7aba0f5d0e45643c3bf99f9207d`) بدمج داخل `inv` فقط، دون تعديل `main` أو تحليل المشروع الأصلي.
+- في `InventoryOpeningLine` أضيف تحقق Domain لمنع `Position <= 0` ومنع `OpeningId == Guid.Empty` اتساقًا مع ترتيب SQL الموجب ومفاتيح المستند؛ لا تغيير لسياسة التقييم أو الترحيل أو الحالة أو قواعد النقدية.
+- حالة قبول INV06-FG05 جديدة تفحص سطرًا صحيحًا، وترتيبين غير صالحين، ومرجع افتتاح فارغًا، وتثبت عدم إنشاء `InventoryOpening` أو `StockMovement` أو `JournalEntry` أو `OutboxEvent` عند الرفض.
+- تحقق محلي: `backend/scripts/verify.py --dotnet /root/.dotnet/dotnet --artifacts /tmp/ameen-inv-agent-20261105-patch` = **531/531 passed; 0 failed** مع بناء Release وفحوص البنية/المخططات وHTTP/OpenAPI. لم تتوفر قيمة `AMEEN_TEST_SQL_CONNECTION` محليًا؛ لا يُدّعى قبول SQL حي أو نجاح CI للـ SHA الجديد قبل تحقق نتائج GitHub Actions.
+- هذا اختبار تقوية لمهمة `INV06-FG05` المكتملة سابقًا، ولا يغلق الاعتماديات المحاسبية وFX والجودة أو شاشة INV06 بالكامل. يظل INV07-01 محجوبًا لعقد مصدر الاستلام/GRNI/PUR المعتمد بحسب `INV07-SOURCE-CONTRACT-AUDIT.md`.
 
 ## SAL01-01 — بنية بطاقة العميل فقط (4 نوفمبر 2026)
 
@@ -22,6 +110,26 @@
 الحالة جزئية بنيويا وليست تشغيلية: تصنيف SAL15 ومندوب SAL09 ومرجع الدولة والهوية المطلوبة حسبها وصلاحية تجاوز الائتمان لم تعتمد؛ لا توجد مراجع أجنبية وهمية إليها. يتم منع كل إدراج/تعديل/حذف Customer عبر EF برمز customer_policy_unavailable حتى اكتمال الاعتماد والتفويض وAPI وHTTP/JWT/OpenAPI/SQL. لا أثر في GL أو المخزون أو الذمم أو بيانات الإنتاج؛ لم تتغير أصول المخططات. متابعة SAL01-02 مشروطة بهذا الاعتماد والقبول؛ لا تعتبر SAL01-01 أو مجموعات حقولها مكتملة نهائيا.
 
 # سجل تقدم وتسليم الباك إند
+
+## دمج ترحيلات المبيعات والمشتريات والمخزون والنقدية
+
+بدأت أربع دفعات مستقلة من النسخة 048 واستخدمت الأرقام نفسها في فروعها. تسلسل الفرع الموحّد هو 049 لمراجع المبيعات، 050 لقوائم الأسعار، 051 للمورّدين، 052 لأسباب حركة المخزون، 053 لرؤوس مستندات المخزون، و054 للتحويلات النقدية. اتُّبِع هذا التسلسل في ملفات SQL ومتطلبات النسخة السابقة وسجل النسخ واختبارات إعادة التشغيل والتعارض ونسخة EF. الأرقام الواردة في ملاحظات الفروع الأقدم تخص تلك الفروع. تستهدف اختبارات الترقية قاعدة SQL Server معزولة.
+
+
+## SAL02 — أساس قوائم الأسعار والسطور، بنية مجال فقط (5 نوفمبر 2026)
+
+أضيفت SalesPriceList وSalesPriceListLine للحقول المعتمدة في SAL02 مع اختبارات القيم، والمراجع، والدقة، والتواريخ، والتدقيق والرفض قبل أي أثر مالي. نجح الفحص المحلي `backend/scripts/verify.py` على .NET 10.0.403 بنتيجة **533/533 PASS** (منها ثلاثة اختبارات SAL02 جديدة). لا ترقية SQL ولا ربط EF ولا API ولا تطبيق تسعير أو فواتير؛ هذا **جزئي** لا يُغلق SAL02-01. اعتماد SAL15/SAL01 وINV04 وSAL06 وحدود الخصم وتعارض فترات الصلاحية وأولوية العميل/المجموعة/العام وJWT/SQL/OpenAPI شرط الإغلاق. التفاصيل في [`sal02-domain-foundation-20261105.md`](sal02-domain-foundation-20261105.md). الوكيل SAL يرفع PR دون دمج؛ نجاح CI النهائي مطلوب.
+
+
+## SAL15-01 — بنية مجال مجموعات العملاء (4 نوفمبر 2026)
+
+أُضيف كيان CustomerGroup مطابق للحقول الأصلية: رمز واسم، قائمة أسعار وحد ائتمان وعملة وشروط دفع وحساب رقابة، ومجموعة أب اختيارية، وحقول التدقيق. أُضيف اختباران للقيم الصحيحة ورفض المراجع الناقصة وحد الائتمان غير الصالح وعدم إنشاء أثر محاسبي. **جزئي بنيوي فقط**؛ لا تشغيل لسياسات الائتمان أو تعديل الفواتير السابقة، ولا EF أو SQL أو API قبل اعتماد الاعتماديات والاختبارات.
+
+
+## SAL09-01 — بنية مجال المندوبين والمناطق (4 نوفمبر 2026)
+
+أُضيف كيان SalesRepresentative للحقول الأصلية: الرمز والاسم والمنطقة الإلزامية، والاسم الإنجليزي والحالة والملاحظات والمراجع الاختيارية للموظف والمشرف والعهدة والعمولة، والتدقيق. أُضيف اختباران لبقاء الحقول ورفض المراجع الصفرية والوقت غير الصالح ومنع الأثر المحاسبي. **جزئي بنيوي فقط**: لا ترحيل SQL أو EF أو API أو صلاحية كشف العملاء، ولا يتم افتراض سياسة عمولة أو نطاق وصول. لا يُعد SAL09 مكتملًا قبل اعتماد المراجع والاختبارات التشغيلية.
+
 
 ## تدقيق مراجع الحقول QA-REF-01 — 27 نوفمبر 2026
 
@@ -53,6 +161,15 @@
 ## SAL13 — أبعاد فلترة المبيعات وحجب الربحية (5 نوفمبر 2026)
 
 تم تأسيس SalesMovementReportFilter وSalesMovementReportVisibility دون تشغيل تقرير: فروع مصرح بها، تواريخ، عملة، حالات وتفصيل ومراجع اختيارية، مع منع نطاق فرع خارجي وحجب التكلفة والربح دون تفويض مثبت من الخدمة المستقبلة. ثلاثة اختبارات مجال موجبة وسالبة؛ لا SQL/EF/API ولا احتساب صافي المبيعات أو ربط مستندات SAL06/SAL07. SAL13-01 جزئية وتبقى شروط الإغلاق والتكامل والأمان معلقة، تفصيلًا في [`sal13-report-domain-20261105.md`](sal13-report-domain-20261105.md). يلزم تحقق CI على SHA النهائي قبل مراجعة SUPERVISOR، ولا دمج مباشر.
+
+
+## GL12-FG02 — قبول سلبي مستقل لسبب إعادة الفتح (5 نوفمبر 2026)
+
+[اختبارات الرفض GL12-FG02](gl12-reopen-reason-rejection-20261105.md)
+تثبت رفض السبب الفارغ أو غير الصالح في مجال الخدمة وعبر HTTPS/JWT/SQL
+بدون تبديل حالة الفترة أو إصدارها أو تدقيقها أو إيصالاتها. هذا **قبول جزئي**
+للسبب الإلزامي فقط، ولا يحقق شرط مرجع الموافقة/نهاية السماح/الدفاتر المساعدة،
+ولا يجيز سياسة إعادة فتح جديدة.
 
 ## INV05-GAP03 / INV05-03 — قبول SQL لسجل الدفعة التاريخي بعد عكس المخزون (4 نوفمبر 2026)
 
@@ -699,6 +816,16 @@
 ## CASH03-CTRL01 — حارس التخصيص على مستوى المجال فقط (3 نوفمبر 2026)
 
 تتحقق `CashReceiptAllocation.ValidateBatch` من حدود كل سطر وتجميع السطور المكررة حسب معرف الفاتورة ومطابقة قيمة المتبقي، ومنع مجموع التخصيص والخصم من تجاوز المتبقي المقدم؛ اجتاز commit `1c5958cf636ed13c03db0fc0ef928a56a985fece` فحص CI #41577255016 (SUCCESS). هذه **حماية مجال منفصلة وغير موصولة بحركة مالية**؛ لا كيان سند قبض ولا ترحيل ولا ضمان متبقي الفاتورة الحقيقي تحت التزامن، ولا زيادة بنك لشيك قيد التحصيل. يحتاج CASH03 إلى SAL11 وحالة الشيك وGL06 وSYS07 وSQL/JWT/HTTP/OpenAPI قبل إغلاقه؛ تبقى شاشة CASH03 غير منفذة تشغيليًا.
+
+## GL05-A05/T02 — نطاق قراءة سجل المراجعة والتصفح (5 نوفمبر 2026)
+
+إضافة اختبارات رفض مستقلة **فقط** على وظيفة القراءة المعتمدة:
+حامل صلاحية Audit دون Read لا يرى سجل قيد حتى لو كان يملك صلاحية التدقيق العامة؛
+الطلبات ذات إزاحة سالبة أو أكبر من 1,000,000 أو حجم صفحة 0 أو 201 تُرفض
+بـ `invalid_pagination`. تؤكد اختبارات المجال وSQL وHTTPS/JWT/OpenAPI عدم
+إنشاء قيد أو تدقيق أو outbox أو receipt أو تغيير التسلسل نتيجة هذه القراءات،
+مع بقاء قراءة المراجع المصرح بها صحيحة. لا تغيير لقواعد اعتماد GL05 أو سياسة
+الفصل أو حالات المراجعة؛ تبقى GL05-02 وGL05-FG02/GP02 معلقة لقراراتها المعتمدة.
 
 ## GL05-A05 — نتيجة مراجعة القيد وسجل التنفيذ المُدقَّق (3 نوفمبر 2026)
 
@@ -1348,11 +1475,11 @@ On branch `temp/gl14-agent03-rejected-edit-atomicity-20261102` from main `d02dbb
 
 ## ملخص آلي من الأدلة المسجلة
 
-الشاشات: 150؛ منفذة جزئيًا: 43؛ لم تبدأ: 107؛ مكتملة: 0. الحقول: 2759؛ المخططات: 28؛ القواعد: 20. لا يمثل ذلك نسبة اكتمال مالي أو تشغيلي.
+الشاشات: 150؛ منفذة جزئيًا: 56؛ لم تبدأ: 94؛ مكتملة: 0. الحقول: 2759؛ المخططات: 28؛ القواعد: 20. لا يمثل ذلك نسبة اكتمال مالي أو تشغيلي.
 
-آخر تقرير محفوظ: `2026-11-02T19:37:11.777004+00:00`؛ النتيجة `passed`؛ 356/356، فشل 0؛ SQL حي مطلوب: `True`. بصمة المصادر: `c13d8b407ef2a454df29b79d1953d501f10d880091dcfe4a161a628421700e18`. هذه نتيجة التقرير المحفوظ وليست فحصًا جديدًا للشجرة الحالية.
+آخر تقرير محفوظ: `2026-11-05T19:06:27.871255+00:00`؛ النتيجة `passed`؛ 539/539، فشل 0؛ SQL حي مطلوب: `False`. بصمة المصادر: `a84bc98a87deda3e7024c6bed6254a8adbcf39235d1c822cdb4c71eb3ae27a93`. هذه نتيجة التقرير المحفوظ وليست فحصًا جديدًا للشجرة الحالية.
 
-تغطية الحقول المنفذة/المشتقة/التدقيق: **14.5%** (399/2759)؛ الحقول الجزئية: 248. نسبة الشاشات التي بدأ تنفيذها: **28.7%**. هذه مؤشرات ربط متطلبات وليست نسبة جاهزية تشغيلية أو ساعات إنجاز.
+تغطية الحقول المنفذة/المشتقة/التدقيق: **16.4%** (453/2759)؛ الحقول الجزئية: 324. نسبة الشاشات التي بدأ تنفيذها: **37.3%**. هذه مؤشرات ربط متطلبات وليست نسبة جاهزية تشغيلية أو ساعات إنجاز.
 
 ### حصيلة الأقسام
 
@@ -1360,10 +1487,10 @@ On branch `temp/gl14-agent03-rejected-edit-atomicity-20261102` from main `d02dbb
 | --- | --- | --- | --- |
 | SYS | 17 | 12 | 5 |
 | GL | 14 | 11 | 3 |
-| CASH | 11 | 9 | 2 |
-| INV | 16 | 6 | 10 |
-| SAL | 15 | 0 | 15 |
-| PUR | 13 | 0 | 13 |
+| CASH | 11 | 10 | 1 |
+| INV | 16 | 14 | 2 |
+| SAL | 15 | 3 | 12 |
+| PUR | 13 | 1 | 12 |
 | POS | 6 | 0 | 6 |
 | IMP | 6 | 0 | 6 |
 | FA | 6 | 0 | 6 |
@@ -1380,9 +1507,9 @@ On branch `temp/gl14-agent03-rejected-edit-atomicity-20261102` from main `d02dbb
 | --- | --- |
 | audit | 46 |
 | derived | 4 |
-| implemented | 349 |
-| partial | 248 |
-| pending | 2112 |
+| implemented | 403 |
+| partial | 324 |
+| pending | 1982 |
 
 implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في التدقيق؛ derived مشتق؛ partial جزئي؛ pending غير منفذ. راجع fields-implementation.csv لمعرفة اسم كل حقل وعقده.
 
@@ -1435,12 +1562,12 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 | CASH02 | البنوك والحسابات البنكية | partial | بنية بطاقة بنك تحمل حقول CASH02-F01..F17، ومفاتيح مركبة للشركة والحساب والفرع والعملة وIBAN اختياري؛ منع تعديل البيانات البنكية قبل اعتماد الصلاحيات ومراجعة تغيير المستفيدين؛ ترقية ذرية قابلة للإعادة | لا يمكن إنشاء/تحرير حساب بنكي عبر API حتى اعتماد التحقق الشرطي لوجوب IBAN وبيانات المستفيدين ومسار المراجعة؛ لا دفتر تسوية أو CASH07/CASH10 أو استعمال تشغيلي للبطاقة؛ الحقول بنية مخزنة فقط |
 | CASH03 | سند قبض | partial | بنية سند قبض و24 حقلًا أصليًا محفوظة في CashReceipts/CashReceiptLines؛ تاريخا الوثيقة والأثر، سعر صرف decimal(20,10)، مبلغ/تخصيص/خصم decimal(20,6)، صيغة صندوق أو بنك شرطية بمفاتيح شركة مركبة؛ ترقية 034 ذرية قابلة للإعادة؛ كل كتابات EF للقبض/السطور محظورة | SAL11 للذمم والفواتير ومرجع جهة القبض غير موجود فعليًا؛ لا FK مخترع لهما. سياسة طريقة التحصيل والمصدر الشرطي والتفويض والترحيل وحالات الشيك وحجز الرصيد والتزامن SYS07/SYS03/GL06/CASH07 غير معتمدة؛ لا API قبض ولا حساب أثر مالي، والمستند البنيوي لا يسمح بحفظه |
 | CASH04 | سند صرف | not-started | — | الشاشة كاملة |
-| CASH05 | تحويل بين الصناديق والبنوك | not-started | — | الشاشة كاملة |
-| CASH06 | العهد والسلف التشغيلية | partial | بنية 23 حقلًا أصليًا لعنوان وسطور العهد والسلف التشغيلية: جداول SQL 039 وEF مع مبالغ دقيقة وسعر صرف وفحص مراجع الشركة والفرع والسنة والعملة، وتسجيل وقت/إصدار تدقيق، ومنع الكتابة تشغيلًا | HR03 صاحب العهدة والمصروف الفعلي غير موصولين، ولا قائمة أنواع/حالات العهدة المعتمدة ولا سياسة رد النقد أو الزيادة أو تسوية ذمم GL06؛ كل EF writes محجوبة، وCASH06 API/HTTPS/JWT/Outbox/موافقات غير منفذة |
+| CASH05 | تحويل بين الصناديق والبنوك | partial | CASH05 schema 049: company-scoped typed cashbox/bank endpoint FKs, exact decimal(20,6)/(20,10), Draft-only guard; domain validation rejects self-transfer and validates both endpoint rates; SQL constraint also rejects same endpoint | Approval and actor authorization; balance reservation; SYS03 period, SYS05 FX source/valuation, fee policy, GL06 posting/reversal, HTTP/JWT lifecycle and operational concurrency remain blocked |
+| CASH06 | العهد والسلف التشغيلية | partial | CASH06 header/settlement-line field structure, exact money/rate precision, audit metadata and default-CreatedAt rejection; domain and SQL acceptance cover original fields | HR03 holder/expense FK and eligibility, approved advance-type catalogue, settlement/reimbursement workflow, CASH04 disbursement, SYS03/SYS07, GL06 posting/reversal and operational authorization remain unavailable |
 | CASH07 | الشيكات الواردة | partial | بنية الشيك الوارد 035 تخزن 22 حقلًا أصليًا بدقة decimal(20,6) وdecimal(20,10)، ورقم شيك بأصفار بادئة؛ فرع وسنة وعملة وحساب تحت التحصيل بمفاتيح مركبة للشركة؛ EF يمنع جميع كتابات الشيك، ترقية ذرية قابلة للإعادة واختبارات SQL مؤقتة | CASH03 القبض والتحصيل وCASH09 دورة حالات الشيك وGL06 الترحيل والذمة وسداد/إعادة دين الدافع غير متصلة؛ فريد بنك/دافع وفق سياسة غير محسومة، لا unique FK مفترض للدافع ولا حركات بنك ولا API/JWT تشغيلية |
 | CASH08 | الشيكات الصادرة | partial | بنية الشيك الصادر 036 تخزن 22 حقلًا أصليًا، مفتاح بنك مرتبط بالشركة، رقم الشيك نصي بالأصفار البادئة وحالة شيك نصية بنيوية دون مراحل معتمدة؛ دقة decimal(20,6)/decimal(20,10) وعزل الشركة؛ EF يمنع الكتابة | CASH04 سند صرف وCASH09 انتقالات شيك وCASH10 مطابقة الكشف وSYS07 التفويض وGL06 الترحيل غير متصلة؛ منع إعادة الرقم الملغى يتطلب نطاق دفتر شيكات/تسلسل معتمد قبل اعتماد فهرس فريد، والمستفيد مخزن كمعرف دون FK معتمدة، لا API تشغيلي |
 | CASH09 | حركة الشيكات | partial | بنية حركة شيك 037 تمثل 13 حقلًا أصليًا مع حل مرجع الشيك ذي النوعين عبر IncomingChequeId أو OutgoingChequeId بمفتاح شركة مركب وقيد exactly-one، ومرجع بنك مستلم اختياري وعمولة decimal(20,6) غير سالبة؛ ترقية ذرية قابلة للإعادة وحارس EF يمنع كل كتابة | قائمة أفعال وانتقالات وحالات CASH09 لم تعتمد؛ لا تحصيل شيك مرتين أو رفض/إلغاء أو إعادة الذمة قبل اعتماد CAS/GL06/SYS07 وCASH07/CASH08 وقواعد التزامن، ولا API تحصيل أو سجل تغير فعلي؛ SQL محفوظ بنيويًا فقط |
-| CASH10 | المطابقة البنكية | partial | بنية 17 حقلًا أصليًا لرأس ومحضر المطابقة وسطور حركات البنك والدفتر؛ SQL 040 ذرية قابلة للإعادة، ربط حساب البنك والفرع والشركة بمفاتيح مركبة، ومبالغ decimal(20,6) تشمل رصيد كشف سالبًا مشروعًا؛ EF يمنع كل كتابة حتى اعتماد ربط الحركات وسياسة الاستيراد | CASH02 بطاقة البنك تشغيلها محجوب؛ لا مصدر حركة كشف أو حركة دفتر مثبت للربط، ولا مفتاح استيراد فريد معتمد، ولا سياسات التوزيع الجزئي والمتعدد/الفرق أو مسودة عمولة GL03 أو التفويض SYS07؛ CASH10 API/JWT/SQL transactional matching غير منفذة |
+| CASH10 | المطابقة البنكية | partial | CASH10 header and reconciliation-line structural fields, company-scoped bank/branch FKs, signed statement balances with decimal precision, statement date range and audit metadata; no journal or bank movement is created | Statement-file ingestion/deduplication, bank/ledger movement source FKs, match allocation policy, GL06 posting/reversal, SYS07/JWT and operational reconciliation remain blocked |
 | CASH11 | جرد الصندوق | partial | بنية محضر جرد صندوق وسطور فئات/عدد القطع بقيمة Decimal محسوبة في SQL؛ مفتاح صندوق وفرع/قائم بالجرد ضمن الشركة وتدقيق زمني وإصدار؛ ترقية 033 ذرية قابلة للإعادة؛ كل الكتابات عبر EF محجوبة حتى اعتماد مسار الرصيد والتسوية | لا توجد عملية جرد أو مقارنة رصيد دفتر أو محضر عجز/زيادة تشغيلي أو اعتماد تسوية GL03؛ الحالة المسموحة وقواعد تفعيل الجرد وصلاحيات SYS07 تتطلب مسارًا معتمدًا؛ SQL بنيوي فقط، لا HTTP/JWT/OpenAPI عمليات CASH11 |
 
 ### شاشات INV
@@ -1453,15 +1580,15 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 | INV04 | بطاقة الصنف | partial | بطاقة صنف ووحدات خاصة به ومعامل أساسي واحد وباركود فريد وسعر بالعملة الوظيفية؛ تحويل دقيق؛ حماية المجموعات والوحدات المستخدمة؛ بحث وحالة وتدقيق | قوائم نوع الصنف والتتبع نطاق أولي مستنتج من الغرض وINV05 وليست قائمة سياسة نهائية؛ الضريبة وحركة المخزون والدفعات والتسلسل التشغيلي والاستخدام المستندي غير منفذة؛ قفل الصنف بعد الحركة يجب إضافته مع دفتر المخزون |
 | INV05 | الدفعات والأرقام التسلسلية | partial | بطاقات هوية دفعات وتسلسل؛ بحث وتعديل وحالة وتدقيق وتزامن؛ فحص التاريخ وقفل تتبع الصنف؛ دون أثر مخزني | اعتماد الجودة وإلزام الصلاحية؛ إزالة افتراض الرقم القديم عند غيابه بعقد إصدار جديد؛ الاستخدام والضمان وربط المستندات وقيود الهوية المستخدمة غير منفذة |
 | INV06 | المخزون أول المدة | partial | تجهيز ومراجعة افتتاح ثم ترحيل ذري لحركة كمية وقيمة وقيد رقابة وOutbox؛ إعداد حساب التسوية ومعاينة الأثر؛ عكس مصدر معتمد بقيم تاريخية وحركات سالبة وقيد مرتبط؛ منع الافتتاح والعكس المكرر ومطابقة الإقفال وعزل الفروع | تسوية افتتاح GL02 الشاملة وإعادة افتتاح مصحح والعكس الجزئي والطباعة ومحرك تقييم الصرف؛ الأجنبية وسياسة القطع والجودة والمواقع وإدخال التسلسل النصي غير مكتملة |
-| INV07 | إذن إضافة واستلام مخزني | not-started | — | الشاشة كاملة |
-| INV08 | إذن صرف مخزني | not-started | — | الشاشة كاملة |
-| INV09 | طلب وتحويل مخزني | not-started | — | الشاشة كاملة |
-| INV10 | استلام تحويل مخزني | not-started | — | الشاشة كاملة |
+| INV07 | إذن إضافة واستلام مخزني | partial | FG01 structural scope only for إذن الاستلام; tenant key and scoped references mapped; all EF mutations fail closed | PUR06/PUR07/IMP05 source identity, supplier, receipt tolerance, provisional cost and GRNI/source-account route remain blocked. |
+| INV08 | إذن صرف مخزني | partial | FG01 structural scope only for إذن الصرف; tenant key and scoped references mapped; all EF mutations fail closed | Inventory valuation engine, SAL05 fulfillment, MFG03 source, purpose and account routing remain blocked. |
+| INV09 | طلب وتحويل مخزني | partial | FG01 structural scope only for طلب التحويل; tenant key and scoped references mapped; all EF mutations fail closed | In-transit quantity/cost, reserve/send semantics and INV10 receiving contract remain blocked. |
+| INV10 | استلام تحويل مخزني | partial | FG01 structural scope only for استلام التحويل; tenant key and scoped references mapped; all EF mutations fail closed | INV09 sent-line and in-transit balance, damaged/shortage disposition and reconciliation remain blocked. |
 | INV11 | حجز وإلغاء حجز المخزون | not-started | — | الشاشة كاملة |
-| INV12 | أوامر الجرد والعد | not-started | — | الشاشة كاملة |
-| INV13 | تسويات الجرد | not-started | — | الشاشة كاملة |
-| INV14 | تالف وصلاحية وعزل | not-started | — | الشاشة كاملة |
-| INV15 | احتساب وإعادة تقييم تكلفة المخزون | not-started | — | الشاشة كاملة |
+| INV12 | أوامر الجرد والعد | partial | FG01 structural scope only for أمر الجرد; tenant key and scoped references mapped; all EF mutations fail closed | Cutoff snapshot, blind-count visibility and exactly-once replay of post-cutoff movements remain blocked. |
+| INV13 | تسويات الجرد | partial | FG01 structural scope only for تسوية الجرد; tenant key and scoped references mapped; all EF mutations fail closed | Approved INV12 count, over/short valuation and GL03 difference account remain blocked. |
+| INV14 | تالف وصلاحية وعزل | partial | FG01 structural scope only for التالف والعزل; tenant key and scoped references mapped; all EF mutations fail closed | INV05 quality state, quarantine-versus-destruction decision, INV08 issue and loss-account approval remain blocked. |
+| INV15 | احتساب وإعادة تقييم تكلفة المخزون | partial | FG01 structural scope only for إعادة تقييم التكلفة; tenant key and scoped references mapped; all EF mutations fail closed | Approved cost-layer method, sold/remaining shares, IMP06 and GL10 remain blocked. |
 | INV16 | أسباب الحركات المخزنية | not-started | — | الشاشة كاملة |
 
 ### شاشات SAL
@@ -1469,26 +1596,26 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 | الشاشة | الاسم | الحالة | المنفذ | المتبقي |
 | --- | --- | --- | --- | --- |
 | SAL01 | بطاقة العميل | not-started | — | الشاشة كاملة |
-| SAL02 | قوائم الأسعار والخصومات | not-started | — | الشاشة كاملة |
+| SAL02 | قوائم الأسعار والخصومات | partial | SalesPriceLists/SalesPriceListLines tenant tables, branch/currency and item-unit-pair FKs, same-company CustomerGroups.PriceListId FK, decimal(20,6) and audit | Customer/group/general priority and assignment source, overlapping effective periods, discount authorization, customer-specific pricing, invoice integration and public API |
 | SAL03 | أرصدة العملاء أول المدة | not-started | — | الشاشة كاملة |
 | SAL04 | أمر البيع | not-started | — | الشاشة كاملة |
 | SAL05 | أمر تسليم مبيعات | not-started | — | الشاشة كاملة |
 | SAL06 | فاتورة المبيعات | not-started | — | الشاشة كاملة |
 | SAL07 | مرتجع المبيعات | not-started | — | الشاشة كاملة |
 | SAL08 | إشعار دائن أو مدين للعميل | not-started | — | الشاشة كاملة |
-| SAL09 | المندوبون والمناطق | not-started | — | الشاشة كاملة |
+| SAL09 | المندوبون والمناطق | partial | SalesRepresentatives tenant table, unique company/code, audit, custody-account tenant FK; opaque employee/supervisor/commission IDs retained without fictional FKs | HR03 employee provider, supervisor target semantics, SAL10 commission policy, customer-scope authorization, active-reference checks and public API/SQL workflow acceptance |
 | SAL10 | العمولات وأهداف المبيعات | not-started | — | الشاشة كاملة |
 | SAL11 | تسوية وتخصيص تحصيل العملاء | not-started | — | الشاشة كاملة |
 | SAL12 | متابعة التحصيل وحد الائتمان | not-started | — | الشاشة كاملة |
 | SAL13 | حركات المبيعات والمرتجعات | not-started | — | الشاشة كاملة |
 | SAL14 | عرض أسعار المبيعات | not-started | — | الشاشة كاملة |
-| SAL15 | مجموعات العملاء وسياسات الائتمان | not-started | — | الشاشة كاملة |
+| SAL15 | مجموعات العملاء وسياسات الائتمان | partial | CustomerGroups tenant table, unique company/code, same-company parent, price-list, currency, payment-term and control-account FKs, decimal(20,6) credit limit and audit | Active-reference checks, SYS16 operational payment terms, credit override/precedence policy, customer assignment, historical invoice handling, permissions and public API |
 
 ### شاشات PUR
 
 | الشاشة | الاسم | الحالة | المنفذ | المتبقي |
 | --- | --- | --- | --- | --- |
-| PUR01 | بطاقة المورد | not-started | — | الشاشة كاملة |
+| PUR01 | بطاقة المورد | partial | Supplier schema/field values, tenant-scoped account/currency references, unique code and audit structure; EF writes blocked until reviewed | Separate reviewer for bank beneficiary/IBAN changes, country-dependent registration/IBAN rules, partner scope/permissions and safe create/edit/status/usage API with SQL/JWT/HTTP acceptance, PUR03/PUR11 posting |
 | PUR02 | أسعار واتفاقيات الموردين | not-started | — | الشاشة كاملة |
 | PUR03 | أرصدة الموردين أول المدة | not-started | — | الشاشة كاملة |
 | PUR04 | طلب شراء داخلي | not-started | — | الشاشة كاملة |
@@ -1617,10 +1744,10 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 | --- | --- | --- |
 | [module-SYS](../../muhaseb-erp-analysis/diagrams/source/module-SYS.mmd) | partial | تهيئة أساسية فقط؛ راجع صفوف SYS في مصفوفة الشاشات |
 | [module-GL](../../muhaseb-erp-analysis/diagrams/source/module-GL.mmd) | partial | دليل حسابات مع تحرير مضبوط وطبيعة صريحة وتدقيق؛ أستاذ وقوالب وتوليد مسودات؛ باقي وظائف GL غير مكتملة |
-| [module-CASH](../../muhaseb-erp-analysis/diagrams/source/module-CASH.mmd) | partial | CASH01 بطاقة صندوق بيانات وواجهات؛ CASH02 أساس بنكي بنيوي للحقول مع حظر كتابته؛ CASH03 أساس سند قبض بنيوي فقط مع حظر كتابته؛ CASH07/CASH08 أساس شيكات بنيوي فقط مع حظر كتابتها؛ CASH09 أساس حركة شيك بنيوي مع منع جميع الكتابات؛ CASH11 أساس جرد بنيوي فقط مع حظر الكتابة؛ الأرصدة والسندات والشيكات والمطابقة لم تنفذ |
+| [module-CASH](../../muhaseb-erp-analysis/diagrams/source/module-CASH.mmd) | partial | CASH01 بطاقة صندوق بيانات وواجهات؛ CASH02 أساس بنكي بنيوي مع حظر كتابته؛ CASH03 أساس سند قبض بنيوي مع حظر كتابته؛ CASH05 أساس تحويل typed endpoints مع ضابط منع التحويل الذاتي وتوثيق سعري الطرفين دون تشغيل؛ CASH06 أساس عهدة بنيوي مع حظر الكتابة؛ CASH07/CASH08 أساس شيكات بنيوي مع حظر الكتابة؛ CASH09 أساس حركة شيك بنيوي مع منع جميع الكتابات؛ CASH10 أساس مطابقة بنكي بنيوي مع حظر الكتابة؛ CASH11 أساس جرد بنيوي مع حظر الكتابة؛ CASH04 محجوب لاعتماد مرجع المستفيد والفاتورة/الحساب ومصدر الدفع؛ الأرصدة والسندات والشيكات والمطابقة التشغيلية لم تنفذ |
 | [module-INV](../../muhaseb-erp-analysis/diagrams/source/module-INV.mmd) | partial | وحدات INV03 ومجموعات INV02 وبطاقات INV04 وتحويلات وباركود وحماية المراجع وعرض الاستخدام؛ بطاقات مخازن INV01 ومواقعها؛ الحركات والتكلفة والتتبع التشغيلي لم تنفذ |
 | [module-SAL](../../muhaseb-erp-analysis/diagrams/source/module-SAL.mmd) | not-started | لم يبدأ التنفيذ |
-| [module-PUR](../../muhaseb-erp-analysis/diagrams/source/module-PUR.mmd) | not-started | لم يبدأ التنفيذ |
+| [module-PUR](../../muhaseb-erp-analysis/diagrams/source/module-PUR.mmd) | partial | PUR01 أساس بطاقة المورد البنيوي فقط دون دورة مورد أو حفظ مفوض؛ بقية شاشات المشتريات غير منفذة |
 | [module-POS](../../muhaseb-erp-analysis/diagrams/source/module-POS.mmd) | not-started | لم يبدأ التنفيذ |
 | [module-IMP](../../muhaseb-erp-analysis/diagrams/source/module-IMP.mmd) | not-started | لم يبدأ التنفيذ |
 | [module-FA](../../muhaseb-erp-analysis/diagrams/source/module-FA.mmd) | not-started | لم يبدأ التنفيذ |
@@ -1671,6 +1798,17 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 
 <!-- generated-progress:end -->
 
+## GL08-FG03 — فرق تقييم محسوب بدقة الخانة الأصلية (5 نوفمبر 2026)
+
+[تقرير GL08 الحسابي الجزئي](gl08-line-preflight-20261105.md) يوضح إضافة حارس
+`Decimal(20,6)` للسطر `GL08-F09/F10/F11`: لا تقريب صامت، ولا حفظ فرق يتجاوز
+دقة التخزين، مع ثلاث اختبارات قبول/رفض مستقلة. **GL08-FG03 جزئية**:
+نوع السعر ومصادر البنود النقدية وسياسة محاسبة الربح/الخسارة وترحيل GL08
+ما زالت محجوبة؛ لم يُنشأ جدول أو خدمة تقييم أو قيد. الأصل لم يتغير.
+
+
+
+
 
 ## SYS10-02 — reconcile live field traceability (2026-11-03)
 
@@ -1708,3 +1846,102 @@ Added a read-only audit of the complete original `muhaseb-erp-analysis/docs/08-r
 ## Combined SPEC05–SPEC08 validation (2026-11-05)
 
 PR #171 exact head `32dd2245a10b7dea861774e228719ecbfc38603d` passed GitHub Actions run `42108701864` (run 1073): Python `79/79`, backend/.NET + isolated SQL + HTTP/JWT/OpenAPI verification `533/533`, API publish succeeded, SQL cleanup succeeded. PR #171 remains open and unmerged for SUPERVISOR review. This CI validates the current backend baseline and the four audit guards; it does not mean the 30 AT scenarios, 19 reports, 150 reference screen comparisons, backup/restore or other blocked operational acceptance work has been executed.
+
+
+
+## CORE SPEC04 — تدقيق التوطين القانوني والإقليمي (5 نوفمبر 2026)
+
+تمت مراجعة 04-localization.md الأصلي دون تعديله وربط 14 مجموعة متطلب و7 بوابات دولة بمهام V1 وشاشات التنفيذ. المخرجات: core-spec04-localization-traceability.csv وcore-spec04-country-gates.csv وcore-spec04-localization-audit-20261105.md، مع حارس check_spec04_localization_coverage.py و10 اختبارات موجبة/سالبة. النتيجة على main SHA 03bf0e1: TAX01–TAX08 كلها not-started و133 حقلًا pending؛ SYS04/SYS05 جزئيتان؛ SYS12/SYS15 غير مدمجتين إلى main رغم إنجاز بنيوي على sys؛ SAL06/PUR07/IMP06/HR05/GL08 غير جاهزة، وCASH03 جزئية. لا ملف دولة أو نسبة أو موصل ضريبي مفعّل. ملاك القرارات القانونية غير معينين، لذلك SPEC04 جزئية حتى تعيين المالك والتحقق الرسمي من المواصفات السارية. المصدر الأصلي محفوظ دون تغيير.
+
+
+## CORE-07 — تقوية قبول جرد الترحيلات (5 نوفمبر 2026)
+
+أضيف اختباران سلبيان إلى حارس جرد الترحيلات الموجود في main دون تغيير كود الترحيلات: رفض ملف SQL الرمزي (symlink) ورفض مجلد يحمل امتداد SQL؛ وهما يغطيان فرعي fail-closed موجودين في check_migration_versions.py. اختبارات CORE-07 أصبحت 14/14 PASS. هذه زيادة تغطية لجزء الجرد فقط، ولا تغلق اختبار backup/restore؛ لا تزال الاستعادة الفعلية بحاجة إلى SYS15 وتشغيل SQL Server معزول، ولا يوجد اختبار أو تغيير لبيانات إنتاج.
+
+
+## GL14-FG03 — حقل إلزام المرفق، قبول مستقل على فرع gl (5 نوفمبر 2026)
+
+استكمال تحقق الحقل GL14-F09 فقط دون فتح الكتابة أو إنشاء API: اختبار المجال يثبت حفظ
+قيمة `RequiresAttachment` true/false عند الإنشاء والتعديل مع ثبات الشركة/الفرع
+والرمز والمصدر، وزيادة Revision وVersion ووقت التعديل مرة واحدة. اختبار SQL
+المعزول يثبت أسماء وأشكال الأعمدة الخمسة عشر في SQL 027، وخصوصًا
+`RequiresAttachment bit NOT NULL`، و`BranchId` الاختياري، وأزواج FK المركبة للشركة/الفرع/سلسلة الترقيم،
+وفهرس تفرد `(CompanyId,Code)`، وCode بترتيب ثنائي، وحقول التدقيق والقيود. هذه دفعة بيانات/اختبار فقط؛ لا تفعّل
+إلزام المرفق عند إرسال GL03 لأن GL14 لا يملك بعد مسار API/اعتماد SYS09 صالحًا.
+تظل FG01 جزئية بسبب التحقق من الفرع الفعال والتفويض، وFG02/FG04 وC01 وT01/T02
+جزئية بحسب اعتماديات SYS09/GL03. التحليل الأصلي وSQL migrations والإجراءات
+المالية لم تتغير. لم يتغير OpenAPI لعدم إضافة مسارات.
+
+## GL10-C01 — حارس فرق الرقابة المقروء فقط (5 نوفمبر 2026)
+
+**تحصين دقة المبالغ (GL10-F07/F08/F09):** قبل قبول التطابق أو تسجيل سبب
+الفرق، يرفض الحارس قيمًا لا تحفظ بدقة Decimal(20,6) الأصلية أو فرقًا
+حسابيًا يخرج عن سعتها، ولا يحوّل قيمًا متساوية تتطلب تقريبًا إلى «مطابقة».
+اختبار رابع يغطي الدقة الزائدة وحدود الحجم وتجاوز طرح decimal.
+لا اعتماد لمصدر الرصيد أو العملة/سياسة التقريب أو تسوية مالية.
+
+
+أضيف `ControlReconciliationPolicy` كحارس نقي يميز بين تساوي رصيد الأستاذ
+والتفصيل وبين فرق يحتاج إلى التحقيق، حتى إذا كُتب سبب للفرق. لا ينشئ
+الحارس أي قيد آلي لتصفير فروق غير مفسرة، ولا يعتبر كتابة السبب مطابقة فعلية.
+تغطي ثلاث اختبارات إيجابية/سلبية الدقة العشرية وغياب السبب وعدم قبول
+تفسير غير متحقق باعتباره تساويًا.
+
+**الحالة جزئية فقط:** لم تُعرّف قيم `GL10-F05` لنوع الدفتر المساعد ولا
+مصدر الأرصدة التفصيلية ومراجع العمليات المسببة؛ لم تُنفذ دورة GL10 أو SQL
+أو API أو تحققات الشركة والصلاحيات والتزامن. الدالة للمقارنة المبدئية
+فقط، وليست تصريحًا باعتماد أو ترحيل أو إقفال GL11. يلزم استكمال اعتماد
+المصادر والعقود، ثم SQL/HTTPS/JWT/OpenAPI قبل إغلاق `GL10-C01`.
+لا تغيير للتحليل أو حقول التغطية أو بيانات الإنتاج. ينتظر CI النهائي.
+
+
+
+## CORE SPEC02 — تدقيق قواعد المحاسبة وأمثلة الأثر (5 نوفمبر 2026)
+
+جرى فحص قواعد BR01–BR20 الأصلية وجدول 26 حدثًا محاسبيًا والمقاطع العامة السبعة دون تغيير المصدر أو استنباط سياسات. أضيف سجل [core-spec02-event-ownership.csv](core-spec02-event-ownership.csv) بربط مجالات الأحداث (PUR/SAL/CASH/INV/FA/HR/MFG/PRJ) وقواعد BR ذات الصلة، مع جعل قبول التنفيذ لجميعها not-verified حتى تثبت أدلة المصدر الفعلية. التوثيق التفصيلي: [core-spec02-accounting-rules-audit-20261105.md](core-spec02-accounting-rules-audit-20261105.md). 8 اختبارات جديدة موجبة وسالبة؛ Python 55/55 PASS. لا تعني مطابقة المرجع اكتمال تنفيذ الدفاتر أو السياسات الضريبية، ومهمة SPEC02 لا تزال جزئية لحين اختبارات المصدر والتوافق والقرار المعتمد وCI.
+
+
+## SAL14 — بنية عرض السعر دون حجز أو ترحيل (5 نوفمبر 2026)
+
+أنشئ SalesQuotation وSalesQuotationLine لحقول عرض السعر الأصلية في SAL14، مع احتفاظ صريح بمرجع العميل الاختياري، إصدار العرض، تواريخ الصلاحية، سطور الأصناف/الخدمات والكميات والأسعار والخصم والضريبة الاختيارية وحقول التدقيق. اختبارات بنيوية موجبة وسالبة **3**، وأعيد الاختبار الكامل بعد إصلاح تمرير قيمة افتراضية داخل اختبار رفض؛ النتيجة النهائية **533/533 PASS**. لا تفعيل لحجز مخزون أو ذمة أو تحويل SAL04 أو تسعير SAL02 أو حالة موافقة أو SQL/EF/API؛ تبقى SAL14-01 **جزئية** وغير مكتملة تشغيليًا. تفاصيل التسليم والحواجز في [`sal14-quotation-domain-20261105.md`](sal14-quotation-domain-20261105.md). يتطلب الرأس النهائي CI مستقلًا ومراجعة SUPERVISOR قبل أي دمج.
+
+
+## SAL09 / SAL15 — tenant-scoped persistence foundation (5 November 2026)
+
+أُضيفت تهيئة EF وترقية SQL 049 للمندوبين ومجموعات العملاء، ثم SQL 050 أضافت مزود قائمة الأسعار وربط PriceListId بـFK داخل الشركة. يبقى EmployeeId/SupervisorId/CommissionPolicyId غير موصول لأن HR03/SAL10 غير متاحين؛ وتبقى صلاحيات نطاق العملاء وسياسات الائتمان وشروط الدفع الفعالة محجوبة. حواجز EF تمنع جميع الكتابات، ولا توجد API تشغيلية. التفاصيل في `docs/backend/sal09-sal15-persistence-foundation-20261105.md`. تبقى SAL09-01 وSAL15-01 جزئيتين/محجوبتين تشغيليًا، ولا تُغلق AC/CTRL/OP.
+
+## SAL02 — tenant-scoped price-list persistence foundation (5 November 2026)
+
+أضيفت ترقية SQL 050 وجداول SalesPriceLists/SalesPriceListLines مع EF، وربطت PriceListId في مجموعات العملاء بـFK مركب داخل الشركة. تحفظ القائمة الفرع والعملة والتواريخ وحالة غير مفسرة وشمول الضريبة، وتحفظ السطور الصنف والوحدة كزوج ItemUnit صحيح والسعر وحد الخصم وحد الكمية بدقة 20,6. اختبارات SQL تغطي الترقية الذرية والتكرار ورفض المراجع غير الصحيحة وزوج الصنف/الوحدة، مع حظر insert/update/delete عبر EF. لا توجد API أو أولوية تسعير أو معالجة تداخل صلاحية أو تفويض خصم أو أثر فاتورة؛ حقول المصدر لا تحدد عقد تعيين قائمة العميل/المجموعة/العامة، فلا ننشئ جدول تعيين مخمّنًا. SAL02-01 يبقى جزئيًا/محجوبًا تشغيليًا، وتظل SAL15 جزئية بعد إضافة FK القائمة. التفاصيل: `docs/backend/sal02-price-list-persistence-20261105.md`.
+
+
+## CASH05 — فحوص تحويل بنيوية مستقلة (4 نوفمبر 2026)
+
+إضافة CashTransferValidation وفحوص CASH05-AC01/02/03: رفض التحويل بين المرجع نفسه مع تمييز نوع الصندوق/البنك، التحقق من المبلغين والعملة وسعري الصرف والعمولة. لا إنشاء لسند تحويل أو اعتماد/ترحيل أو تسوية فروق عملة؛ هذه الخطوات تتطلب السياسات المعتمدة والتكاملات وSQL/HTTP/JWT.
+
+## CASH05 — بنية ترويسة التحويل (4 نوفمبر 2026)
+
+إضافة كيان CashTransfer في المجال فقط لحفظ حقول الترويسة المعتمدة وتمييز طرفي الصندوق/البنك وسعري الصرف مع حقول التدقيق؛ اختبارات FG01/FG02 إيجابية وسلبية. لم تُضف EF/SQL أو مسارات HTTP أو حالة اعتماد أو حجز رصيد أو GL، فلا تُعامل الترويسة كسند مالي قابل للتنفيذ.
+## CASH05-FG03 / CASH05-AC02 — رفض حقن حالة مالية في ترويسة التحويل (5 نوفمبر 2026)
+
+تحقق Domain إضافي في `CashTransfer` يمنع إنشاء مستند جديد بحالة `Submitted` أو `Approved` أو `Posted` من قيمة يمررها المستدعي؛ الترويسة البنيوية الجديدة تُقبل في `Draft` فقط إلى حين وجود دورة اعتماد وترحيل مصرح بها. اختبار سلبي لثلاث محاولات تجاوز، واختبار إيجابي لحفظ المرجع الخارجي والعمولة وهوية المُنشئ والإصدار. التغيير لا يضيف سياسة صرف أو تسعير أو فروق عملة، ولا يتيح كتابة SQL/EF أو تأثيرًا على GL. فحوص `verify.py` المحلية قبل مزامنة `main` نجحت 537/537، مع إعادة الاختبار على SHA الدمج النهائي قبل التوثيق. SQL Server الحي لم يُشغّل محليًا، ويتطلب قبول CI على الفرع المرفوع؛ CASH05-FG03/AC02 وCASH05-01 ما زالت جزئية.
+
+## CASH05-01 — أساس SQL049 محجوب الكتابة (5 نوفمبر 2026)
+
+بناء بنية تحويل الصناديق والبنوك على مستوى Domain/EF/SQL فقط. تحفظ الترقية `049_cash_transfers_foundation.sql` حقول الترويسة الأصلية، وتستخدم أربعة أعمدة ربط تقنية مشروطة لإنفاذ مفاتيح مركبة على الشركة لكل من مصدر/مقصد صندوق أو حساب بنكي؛ لا يجري تخمين حسابات الأستاذ أو تقييم فروق الصرف. تمنع قاعدة البيانات التحويل بين المرجع نفسه، وغياب أي نوع من المرجعين، والحالة غير Draft، والمبالغ أو الأسعار غير الموجبة، والمراجعة/التدقيق غير الصحيحين. يرفض `ErpDbContext` كل إدراج/تعديل/حذف للتحويل برمز `cash_transfer_policy_unavailable` حتى اعتماد السياسات والتفويض وGL06.
+
+اختبار `CashTransferSqlIntegration` يُشغّل على SQL Server مؤقت فقط عبر `verify.py --sql`: ذرية الترقية، إمكانية إعادة تشغيلها، تطابق الحقول، المراجع المركبة، الرفض السلبي، ودقة العملة/المبالغ مع منع تأثير GL/Audit/Outbox. اجتياز الاختبارات المحلية بدون `--sql` لا يثبت قبول SQL الحي؛ نتيجة GitHub Actions الفعلية على SHA النهائي هي المرجع. لا API تشغيلية، ولا حجز رصيد، ولا اعتماد أو ترحيل أو تسعير عمولات/فروق صرف، ولا إغلاق نهائي لـCASH05-01. لا تعديل للتحليل الأصلي أو بيانات الإنتاج.
+
+## CASH — استئناف التنفيذ ومراجعة جاهزية V1 (5 نوفمبر 2026)
+
+مصدر الاختيار: عرض V1 لمهام CASH في Notion مع `muhaseb-erp-analysis/docs/modules/CASH.md` و`data/fields.csv` و`diagrams/source/module-CASH.mmd` الأصلية. لم يُستخدم مخطط Notion V2 ولم تُعدل ملفات التحليل الأصلية.
+
+- خط الأساس الموثق: `cash@3556af9683a186e8e7fc3c597b55044631992ee0`؛ PR #130 ما زال Draft، ولم يحدث دمج في main.
+- تحقق محلي على نفس SHA: `backend/scripts/verify.py` = 540/540 PASS. آخر CI على SHA نفسه: [#41919143648](https://github.com/ameenalqershi/ameen-erp/actions/runs/41919143648) SUCCESS = 541/541، ويشمل SQL Server المعزول وHTTP/JWT/OpenAPI.
+- إغلاق مستقل `CASH05-CTRL01`: ضابط منع الإرسال والاستلام من الحساب نفسه والتحقق من سعري الطرفين موجود في `CashTransferValidation` واختباراته، ويؤيده قيد SQL `CK_CashTransfer_Accounts` في migration 049. لا يغلق ذلك دورة التحويل أو الاعتماد أو حجز الرصيد أو FX/fee أو GL06.
+- إغلاق مجموعات الحقول البنيوية `CASH06-FG01/02` و`CASH10-FG02/03`: هوية الشركة/الفرع/السنة، رقم وتواريخ وعملة العهدة، نطاق تاريخ الكشف والأرصدة الموقعة، ومعرف ملف الكشف الاختياري محفوظة ومختبرة في Domain/SQL. تبقى شاشتا CASH06 وCASH10 جزئيتين؛ لا يوجد صرف عهدة/تسوية أو استيراد كشف/مطابقة حركات/ترحيل.
+- تصحيح حالات Notion إلى جزئي، بدل لم يبدأ: `CASH06-FG03/04/05` و`CASH10-FG01/04`. مراجع HR03 والحركات البنكية/الدفترية وسياسات الحالة/التسوية لا تزال غير معتمدة.
+- حسم بوابة CASH04: سجل `CASH04-01` في V1 ينص صراحة على عدم إنشاء schema مضلل قبل تحديد مرجع المستفيد، والفاتورة أو الحساب، ومصدر الصندوق أو البنك. لذلك لم تُنشأ migration 050 أو كيان أو API لسند الصرف. حُولت مهام CASH04-02/03 ومجموعات FG01–FG07 وOP01–OP05 وCTRL01 وAC01/02 إلى محجوب مع تسجيل الاعتماديات والأسباب في Notion. هذا ليس توقفًا اختياريًا؛ إنه منع لتصميم مراجع/سياسات غير معتمدة.
+- حدّثت `backend/scripts/traceability.py` ومصفوفات التتبع المولدة لحقول CASH05 وCASH06 وCASH10، مع إبقاء الحقول والمراجع غير المحسومة جزئية، وإبقاء شاشات CASH غير التشغيلية جزئية.
+- نظّفت حالة التنفيذ في عرضي V1 في Notion: عرض مهام التنفيذ 175 سجلًا (18 مكتمل، 76 جزئي، 81 محجوب، 0 لم يبدأ)؛ عرض تفريد الحقول 141 سجلًا (13 مكتمل، 59 جزئي، 69 محجوب). نُقلت 44 مهمة تشغيل/قبول كانت لم تبدأ إلى محجوب بعد تسجيل اعتمادياتها؛ لم تُحسب كإنجاز. أُغلقت فقط مجموعات الحقول/الضابط المثبتة أعلاه.
+- لم تُكتب بيانات إنتاج، ولم تُفتح أي كتابة EF جديدة، ولم يُدمج أي تغيير في main. الخطوة التشغيلية التالية تتطلب حسم اعتماديات PUR11/CASH08/CASH01/CASH02/GL06/SYS03/SYS07، لا إضافة سياسات تخمينية.

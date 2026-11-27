@@ -7,7 +7,7 @@ namespace Ameen.Erp.Infrastructure;
 
 public sealed partial class ErpDbContext : DbContext
 {
-    public const int SchemaVersion = 48;
+    public const int SchemaVersion = 54;
     public ErpDbContext(DbContextOptions<ErpDbContext> options) : base(options) { }
 
     private static EntityTypeBuilder<T> Tenant<T>(ModelBuilder model, string table) where T : CompanyEntity
@@ -29,6 +29,10 @@ public sealed partial class ErpDbContext : DbContext
         ConfigureCompany(model);
         ConfigureCurrency(model);
         ConfigureCustomer(model);
+        ConfigureSalesRepresentatives(model);
+        ConfigureCustomerGroups(model);
+        ConfigureSalesPriceLists(model);
+        ConfigureSupplier(model);
         ConfigureItem(model);
         ConfigureItemUnit(model);
         ConfigureItemGroup(model);
@@ -44,6 +48,7 @@ public sealed partial class ErpDbContext : DbContext
         ConfigureCashCounts(model);
         ConfigureCashReceipts(model);
         ConfigureCashAdvances(model);
+        ConfigureCashTransfers(model);
         ConfigureBankReconciliations(model);
         ConfigureChequeFoundations(model);
         ConfigureChequeMovements(model);
@@ -69,6 +74,8 @@ public sealed partial class ErpDbContext : DbContext
         ConfigureWarehouses(model);
         ConfigureInventoryIdentity(model);
         ConfigureInventoryOpening(model);
+        ConfigureInventoryMovementReason(model);
+        ConfigureInventoryDocumentHeaderFoundations(model);
         ConfigureInventoryPosting(model);
         ConfigureRecurring(model);
         // Use one date-only storage contract for all accounting dates.
