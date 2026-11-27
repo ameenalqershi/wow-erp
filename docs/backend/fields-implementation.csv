@@ -2677,7 +2677,7 @@ RPT07,RPT07-F10,شرائح الأيام,required,pending,,
 RPT07,RPT07-F11,المورد,optional,pending,,
 RPT07,RPT07-F12,تاريخ سداد مخطط,optional,pending,,
 RPT08,RPT08-F01,الشركة,system,implemented,CompanyId,GET /companies/{companyId}/reports/inventory-balances
-RPT08,RPT08-F02,الفروع المصرح بها,required,implemented,BranchIds: authorized scope; optional branchId,GET /companies/{companyId}/reports/inventory-balances
+RPT08,RPT08-F02,الفروع المصرح بها,required,implemented,query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope,GET /companies/{companyId}/reports/inventory-balances
 RPT08,RPT08-F03,من تاريخ,required,implemented,query.from,GET /companies/{companyId}/reports/inventory-balances
 RPT08,RPT08-F04,إلى تاريخ,required,implemented,query.to,GET /companies/{companyId}/reports/inventory-balances
 RPT08,RPT08-F05,عملة العرض,required,partial,Currency: functional currency only,GET /companies/{companyId}/reports/inventory-balances
@@ -2690,7 +2690,7 @@ RPT08,RPT08-F11,المجموعة,optional,implemented,query.groupId (current ite
 RPT08,RPT08-F12,الصنف,optional,implemented,query.itemId,GET /companies/{companyId}/reports/inventory-balances
 RPT08,RPT08-F13,تضمين الطريق والعزل,required,pending,,
 RPT09,RPT09-F01,الشركة,system,implemented,CompanyId,GET /companies/{companyId}/reports/items/{itemId}/ledger
-RPT09,RPT09-F02,الفروع المصرح بها,required,implemented,BranchIds: authorized scope; optional branchId,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RPT09,RPT09-F02,الفروع المصرح بها,required,implemented,query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope,GET /companies/{companyId}/reports/items/{itemId}/ledger
 RPT09,RPT09-F03,من تاريخ,required,implemented,query.from,GET /companies/{companyId}/reports/items/{itemId}/ledger
 RPT09,RPT09-F04,إلى تاريخ,required,implemented,query.to,GET /companies/{companyId}/reports/items/{itemId}/ledger
 RPT09,RPT09-F05,عملة العرض,required,partial,Currency: functional currency only,GET /companies/{companyId}/reports/items/{itemId}/ledger

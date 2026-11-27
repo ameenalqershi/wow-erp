@@ -2865,7 +2865,7 @@
         },
         "RPT08-F02": {
           "status": "implemented",
-          "binding": "BranchIds: authorized scope; optional branchId"
+          "binding": "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope"
         },
         "RPT08-F03": {
           "status": "implemented",
@@ -2913,7 +2913,7 @@
         },
         "RPT09-F02": {
           "status": "implemented",
-          "binding": "BranchIds: authorized scope; optional branchId"
+          "binding": "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope"
         },
         "RPT09-F03": {
           "status": "implemented",

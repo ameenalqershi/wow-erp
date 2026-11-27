@@ -93,6 +93,49 @@ public static class InventoryReportTests
             Ensure(report.Rows.TotalCount == 0 && report.BranchIds.SequenceEqual(new[] { f.OtherBranchId }));
             await Error("branch_access_denied", () => f.Service.Report.InventoryLedger(f.CompanyId, item.Id, reader, Fixture.Date, Fixture.Date, null, request.WarehouseId, null, 0, 10, default));
         });
+        test("RPT08/09 FG01: multiple branch selection, historical dates and denied scopes", async f =>
+        {
+            var (request, _) = await Post(f);
+            var item = request.Lines[0].ItemId;
+            var third = await f.Service.Branch.CreateBranch(f.CompanyId, f.Owner, Fixture.Key(),
+                new("RPT-THIRD", "فرع ثالث", "مدينة", "عنوان"), default);
+            var date = Fixture.Date;
+            async Task Compare(Actor actor, Guid[]? selected, Guid[] expected, decimal value, Guid? single = null,
+                Guid? warehouse = null, DateOnly? from = null, DateOnly? to = null)
+            {
+                var b = await f.Service.Report.InventoryBalances(f.CompanyId, actor, from ?? date, to ?? date,
+                    single, warehouse, null, item, true, 0, 20, default, selected);
+                var l = await f.Service.Report.InventoryLedger(f.CompanyId, item, actor, from ?? date, to ?? date,
+                    single, warehouse, null, 0, 20, default, selected);
+                Ensure(b.CompanyId == f.CompanyId && l.CompanyId == f.CompanyId &&
+                    b.BranchIds.Length == expected.Length && l.BranchIds.Length == expected.Length &&
+                    expected.ToHashSet().SetEquals(b.BranchIds) && expected.ToHashSet().SetEquals(l.BranchIds) &&
+                    b.ClosingValue == value && l.ClosingValue == value &&
+                    b.OpeningValue + b.InValue - b.OutValue == b.ClosingValue &&
+                    l.OpeningValue + l.InValue - l.OutValue == l.ClosingValue);
+            }
+            Guid[] selected = [f.BranchId, third.ResourceId];
+            await Compare(f.Owner, [..selected, f.BranchId], selected, 10.5m, warehouse: request.WarehouseId);
+            await Compare(f.Owner, [f.OtherBranchId, third.ResourceId], [f.OtherBranchId, third.ResourceId], 0);
+            await Compare(f.Limited, [], [f.BranchId], 10.5m);
+            await Compare(f.Owner, null, [f.BranchId], 10.5m, single: f.BranchId, from: date.AddDays(1), to: date.AddDays(1));
+            await Compare(f.Owner, selected, selected, 0, from: date.AddDays(-1), to: date.AddDays(-1));
+            async Task Reject(string code, Actor actor, Guid[] branches, Guid? single = null, Guid? warehouse = null)
+            {
+                await Error(code, () => f.Service.Report.InventoryBalances(f.CompanyId, actor, date, date,
+                    single, warehouse, null, item, true, 0, 10, default, branches));
+                await Error(code, () => f.Service.Report.InventoryLedger(f.CompanyId, item, actor, date, date,
+                    single, warehouse, null, 0, 10, default, branches));
+            }
+            await Reject("branch_access_denied", f.Limited, selected);
+            await Reject("reference_not_found", f.Owner, [f.BranchId, Guid.NewGuid()]);
+            await Reject("ambiguous_branch_filter", f.Owner, selected, f.BranchId);
+            await Reject("warehouse_branch_mismatch", f.Owner, [f.OtherBranchId], warehouse: request.WarehouseId);
+            await f.Service.Branch.SetBranchStatus(f.CompanyId, third.ResourceId, f.Owner, Fixture.Key(),
+                new(third.Version, false, "إيقاف الفرع"), default);
+            await Reject("branch_inactive", f.Owner, selected);
+            await Compare(f.Owner, null, [f.BranchId, f.OtherBranchId, third.ResourceId], 10.5m);
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));
