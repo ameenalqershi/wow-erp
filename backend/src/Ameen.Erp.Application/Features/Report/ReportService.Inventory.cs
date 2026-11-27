@@ -2,23 +2,22 @@ using Ameen.Erp.Domain;
 namespace Ameen.Erp.Application;
 public sealed partial class ReportService
 {
-    private async Task<Guid[]> InventoryBranches(Guid cid, Actor actor, Guid? branchId, Guid? warehouseId, CancellationToken ct)
+    private async Task<Guid[]> InventoryBranches(Guid cid, Actor actor, Guid? branchId, Guid? warehouseId, Guid[]? branchIds, CancellationToken ct)
     {
-        var member = await Authorize(cid, actor, Permissions.Read, branchId, ct);
-        var branches = await AllowedBranches(cid, member, branchId, ct);
+        var branches = await ReportBranches(cid, actor, branchId, branchIds, null, ct);
         if (warehouseId is Guid id)
         {
             var warehouse = await Required<Warehouse>(cid, id, ct);
             await Authorize(cid, actor, Permissions.Read, warehouse.BranchId, ct);
-            Check.That(branchId is null || branchId == warehouse.BranchId, "warehouse_branch_mismatch", "المخزن لا يتبع الفرع المحدد.");
+            Check.That(branches.Contains(warehouse.BranchId), "warehouse_branch_mismatch", "المخزن لا يتبع الفرع المحدد.");
         }
         return branches;
     }
     public async Task<InventoryBalanceResult> InventoryBalances(Guid cid, Actor actor, DateOnly from, DateOnly to,
-        Guid? branchId, Guid? warehouseId, Guid? groupId, Guid? itemId, bool showZero, int offset, int limit, CancellationToken ct)
+        Guid? branchId, Guid? warehouseId, Guid? groupId, Guid? itemId, bool showZero, int offset, int limit, CancellationToken ct, Guid[]? branchIds = null)
     {
         Paging(offset, limit); Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
-        var branches = await InventoryBranches(cid, actor, branchId, warehouseId, ct);
+        var branches = await InventoryBranches(cid, actor, branchId, warehouseId, branchIds, ct);
         if (groupId is Guid group) await Required<ItemGroup>(cid, group, ct);
         if (itemId is Guid item) await Required<Item>(cid, item, ct);
         var company = await Company(cid, ct);
@@ -45,10 +44,10 @@ public sealed partial class ReportService
             new(rows.Skip(offset).Take(limit).ToArray(), rows.Length, offset, limit));
     }
     public async Task<InventoryLedgerResult> InventoryLedger(Guid cid, Guid itemId, Actor actor, DateOnly from, DateOnly to,
-        Guid? branchId, Guid? warehouseId, string? identityNumber, int offset, int limit, CancellationToken ct)
+        Guid? branchId, Guid? warehouseId, string? identityNumber, int offset, int limit, CancellationToken ct, Guid[]? branchIds = null)
     {
         Paging(offset, limit); Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
-        var branches = await InventoryBranches(cid, actor, branchId, warehouseId, ct);
+        var branches = await InventoryBranches(cid, actor, branchId, warehouseId, branchIds, ct);
         var item = await Required<Item>(cid, itemId, ct); var company = await Company(cid, ct);
         identityNumber = string.IsNullOrWhiteSpace(identityNumber) ? null : Check.Code(identityNumber, "الدفعة أو التسلسل");
         var identities = identityNumber is null ? Array.Empty<Guid>() :

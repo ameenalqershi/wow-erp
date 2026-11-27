@@ -91,5 +91,53 @@ public static class AccountLedgerAcceptanceTests
         if (restricted.Entries.TotalCount != 2 || restricted.PeriodCredit != 0 ||
             restricted.ClosingBalance != 50 || restricted.Entries.Items.Any(x => x.JournalId != z.ResourceId))
             throw new Exception("RPT02 branch scope included another branch's movement or balance");
+
+        // RPT02-OP03: the public source key is (JournalId, Position), not
+        // the printed number or an account-relative row index.
+        var auditCount = f.Store.All<AuditEvent>().Count();
+        var outboxCount = f.Store.All<OutboxEvent>().Count();
+        var receiptCount = f.Store.All<IdempotencyRecord>().Count();
+        foreach (var actor in new[] { f.Clerk, f.Limited })
+        {
+            var report = await Page(actor, 0, 10);
+            foreach (var row in report.Entries.Items)
+            {
+                var journal = await f.Service.Journal.GetJournal(f.CompanyId, row.JournalId, actor, default);
+                var line = journal.Lines.Single(x => x.Position == row.Position);
+                if (journal.Id != row.JournalId || journal.CompanyId != f.CompanyId ||
+                    !report.BranchIds.Contains(journal.BranchId) || journal.State != JournalState.Posted ||
+                    journal.AccountingDate != row.AccountingDate || journal.Number != row.Number ||
+                    line.AccountId != report.AccountId || line.Description != row.Description ||
+                    line.FunctionalDebit != row.Debit || line.FunctionalCredit != row.Credit ||
+                    line.CurrencyCode != row.CurrencyCode || line.Debit != row.OriginalDebit ||
+                    line.Credit != row.OriginalCredit || line.ExchangeRate != row.ExchangeRate)
+                    throw new Exception("RPT02 source drill-through returned a different journal line");
+            }
+        }
+        await RejectSource("branch_access_denied", f.Limited, a.ResourceId);
+        await RejectSource("permission_denied", new Actor("rpt02-outsider"), z.ResourceId);
+        await RejectSource("reference_not_found", f.Clerk, Guid.NewGuid());
+        if (auditCount != f.Store.All<AuditEvent>().Count() ||
+            outboxCount != f.Store.All<OutboxEvent>().Count() ||
+            receiptCount != f.Store.All<IdempotencyRecord>().Count())
+            throw new Exception("Report/source read created accounting or command effects");
+
+        // A later reversal must not erase the historical source or change
+        // the prior period's line identity and amounts.
+        var reversal = await f.Service.Journal.ReverseJournal(f.CompanyId, z.ResourceId, f.Clerk,
+            Fixture.Key(), new(z.Version, date.AddDays(1), "تصحيح لاحق"), default);
+        await f.Post(reversal);
+        var historical = await Page(f.Clerk, 0, 10);
+        var original = await f.Service.Journal.GetJournal(f.CompanyId, z.ResourceId, f.Clerk, default);
+        if (!historical.Entries.Items.SequenceEqual(rows) || original.State != JournalState.Reversed ||
+            original.Lines.Single(x => x.Position == 2).FunctionalDebit != 4)
+            throw new Exception("Historical report lost its reversed source");
+
+        async Task RejectSource(string code, Actor actor, Guid id)
+        {
+            try { await f.Service.Journal.GetJournal(f.CompanyId, id, actor, default); }
+            catch (BusinessException e) when (e.Code == code) { return; }
+            throw new Exception("Expected source access error: " + code);
+        }
     }
 }

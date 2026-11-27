@@ -2812,7 +2812,7 @@
     },
     "RPT02": {
       "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
-      "implemented": "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة",
+      "implemented": "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع",
       "remaining": "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
       "fields": {
         "RPT02-F01": {
@@ -2865,7 +2865,7 @@
         },
         "RPT08-F02": {
           "status": "implemented",
-          "binding": "BranchIds: authorized scope; optional branchId"
+          "binding": "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope"
         },
         "RPT08-F03": {
           "status": "implemented",
@@ -2913,7 +2913,7 @@
         },
         "RPT09-F02": {
           "status": "implemented",
-          "binding": "BranchIds: authorized scope; optional branchId"
+          "binding": "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope"
         },
         "RPT09-F03": {
           "status": "implemented",
