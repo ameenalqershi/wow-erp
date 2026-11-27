@@ -221,6 +221,25 @@ public static class FoundationSqlIntegration
             }
             finally { command.CommandText = "REVERT"; await command.ExecuteNonQueryAsync(); }
         }
+        var finalCenter = await Call(s => s.CostCenter.GetCostCenter(cid, child.Id, owner, default));
+        var centerHistory = await Call(s => s.CostCenter.ListCostCenterAudit(cid, child.Id, owner, 0, 10, default));
+        Ensure(finalCenter.Revision == 4 && !finalCenter.IsActive && centerHistory.TotalCount == 4 &&
+            centerHistory.Items.All(x => x.CompanyId == cid && x.ResourceId == child.Id &&
+                x.ActorId == owner.Subject && x.OccurredAt == new FixedClock().UtcNow) &&
+            centerHistory.Items.Count(x => x.Action == "cost-center.created") == 1 &&
+            centerHistory.Items.Count(x => x.Action == "cost-center.edited") == 2 &&
+            centerHistory.Items.Count(x => x.Action == "cost-center.status-changed") == 1,
+            "COST01 audit timestamps, actor, revision or replay/rollback count differs");
+        var historyIds = new List<Guid>();
+        for (var offset = 0; offset < 4; offset++)
+        {
+            var page = await Call(s => s.CostCenter.ListCostCenterAudit(cid, child.Id, owner, offset, 1, default));
+            Ensure(page.TotalCount == 4, "COST01 SQL audit total differs across pages");
+            historyIds.Add(page.Items.Single().Id);
+        }
+        Ensure(historyIds.SequenceEqual(centerHistory.Items.Select(x => x.Id)), "COST01 SQL audit paging unstable");
+        await Error("reference_not_found", () => Call(s => s.CostCenter.ListCostCenterAudit(otherId, child.Id, owner, 0, 10, default)));
+        Console.WriteLine("  SQL PASS COST01-FG04/OP06 server timestamps, numeric revision, audit paging, rollback and tenant isolation");
         Console.WriteLine("  SQL PASS COST01 tenant FKs and SYS04/COST01 status writes under runtime role");
     }
     private static void Ensure(bool condition, string message) { if (!condition) throw new Exception(message); }

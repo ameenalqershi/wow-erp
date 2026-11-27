@@ -2356,6 +2356,45 @@ public static class HostedApiIntegration
                         "RPT01 inactive center remained selectable");
                 using (var history = await client.GetAsync(trialByCenter))
                     history.EnsureSuccessStatusCode();
+                var centerAuditPath = centersPath + $"/{childCenter.ResourceId}/audit-events";
+                using (var centerDetail = await client.GetAsync(centersPath + $"/{childCenter.ResourceId}"))
+                using (var data = JsonDocument.Parse(await centerDetail.Content.ReadAsStringAsync()))
+                    Ensure(centerDetail.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("revision").GetInt32() == 3,
+                        "COST01 numeric revision did not persist");
+                using (var auditResponse = await client.GetAsync(centerAuditPath))
+                using (var data = JsonDocument.Parse(await auditResponse.Content.ReadAsStringAsync()))
+                {
+                    var events = data.RootElement.GetProperty("items").EnumerateArray().ToArray();
+                    Ensure(auditResponse.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("totalCount").GetInt32() == 3 &&
+                        events.Length == 3 && events.All(x => x.GetProperty("companyId").GetGuid() == companyId &&
+                            x.GetProperty("resourceId").GetGuid() == childCenter.ResourceId &&
+                            x.GetProperty("actorId").GetString() == "sql-owner" &&
+                            x.GetProperty("occurredAt").GetDateTimeOffset() != default) &&
+                        events.Select(x => x.GetProperty("action").GetString()).ToHashSet().SetEquals(
+                            new[] { "cost-center.created", "cost-center.edited", "cost-center.status-changed" }),
+                        "COST01 HTTP audit actor, timestamps, actions or resource scope differ");
+                    var ids = new List<Guid>();
+                    for (var offset = 0; offset < 3; offset++)
+                    {
+                        using var page = await client.GetAsync(centerAuditPath + $"?offset={offset}&limit=1");
+                        using var json = JsonDocument.Parse(await page.Content.ReadAsStringAsync());
+                        Ensure(page.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 3,
+                            "COST01 HTTP audit pagination differs");
+                        ids.Add(json.RootElement.GetProperty("items")[0].GetProperty("id").GetGuid());
+                    }
+                    Ensure(ids.SequenceEqual(events.Select(x => x.GetProperty("id").GetGuid())), "COST01 HTTP audit pages unstable");
+                }
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("cost01-http-branch-auditor", new[] { Permissions.Read, Permissions.Audit },
+                        false, new[] { warehouseBranch.ResourceId }, null));
+                foreach (var costAuditSubject in new[] { "cost01-http-branch-auditor", "cost01-http-no-membership" })
+                {
+                    Authenticate(Token(costAuditSubject));
+                    using var deniedAudit = await client.GetAsync(centerAuditPath);
+                    Ensure(deniedAudit.StatusCode == HttpStatusCode.Forbidden, "COST01 audit leaked outside company-wide scope");
+                }
+                Authenticate(Token("sql-owner"));
+                Console.WriteLine("  HOST PASS COST01-FG04/OP06 audit timestamps, numeric revision, stable pages and scoped JWT denial");
                 Console.WriteLine("  HOST PASS SYS04/COST01 create, PUT edit, search, status, usage and audit over production HTTPS/JWT/SQL");
                 Authenticate(Token("sql-clerk"));
                 Console.WriteLine("  HOST PASS GL01 create/detail/PUT edit/replay, explicit nature, usage and audit over production HTTPS/JWT/SQL");
