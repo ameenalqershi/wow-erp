@@ -1813,3 +1813,7 @@ PR #171 exact head `32dd2245a10b7dea861774e228719ecbfc38603d` passed GitHub Acti
 ## RC15 — تدقيق عقد الموازنة (#2024)
 
 [تدقيق العقد](rpt-budget-contract-audit-20261127.md) و[مطابقة 122 حقلًا](rpt-budget-contract-fields-20261127.csv) يربطان COST02/03/05 وPUR06/07 ونسخة الخطة والالتزام والفعلي والمناقلات. الشاشات not-started، RC15 not-verified. يلزم ربط الفوترة الجزئية وتحديد سياسة الإسناد والنسبة قبل قبول التشغيل.
+
+## RC16 — تدقيق عقد الرواتب (#2025)
+
+[التدقيق](rpt-payroll-contract-audit-20261127.md) و[127 حقلًا](rpt-payroll-contract-fields-20261127.csv) يربطان HR01–06 وCASH04 باستحقاق الرواتب والسلف والصرف والسرية. RC16 وAT22 not-verified؛ المصادر not-started. إعادة القبول عند تنفيذ المسير والخصم والسداد، ولا اعتبار ملف البنك إثباتًا للدفع.
