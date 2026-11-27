@@ -36,6 +36,17 @@ internal static class ReportsEndpoints
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
             .Produces<TrialBalanceResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
+        app.MapGet(p + "/reports/trial-balance/export", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero,
+            ReportService s, HttpContext h, CancellationToken ct) =>
+        {
+            var bytes = await s.TrialBalanceExport(companyId, Actor(h), Date(from), Date(to),
+                branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds);
+            h.Response.Headers["Cache-Control"] = "no-store, private";
+            h.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "trial-balance.xlsx");
+        }).Produces(StatusCodes.Status200OK, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+          .RequireAuthorization().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/trial-balance/print", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero,
             ReportService s, HttpContext h, CancellationToken ct) =>

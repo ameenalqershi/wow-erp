@@ -2767,9 +2767,9 @@
       "test_file": "backend/tests/Ameen.Erp.Tests/CashCountFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashCountSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     },
     "RPT01": {
-      "api": "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print",
-      "implemented": "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات وصلاحية مستقلة وأثر استخراج",
-      "remaining": "طرق عرض العملات ومستوى التفصيل والتصدير وتحسين أحجام كبيرة",
+      "api": "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print; GET /companies/{companyId}/reports/trial-balance/export",
+      "implemented": "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات وصلاحية مستقلة وأثر استخراج؛ تصدير Excel بنفس المرشحات وصلاحية مستقلة وأثر استخراج",
+      "remaining": "طرق عرض العملات ومستوى التفصيل وتحسين أحجام كبيرة",
       "fields": {
         "RPT01-F01": {
           "status": "implemented",
