@@ -2302,9 +2302,9 @@ public static class HostedApiIntegration
                 await Command(client, $"/api/v1/companies/{companyId}/memberships",
                     new GrantMembershipRequest("cost01-http-branch-auditor", new[] { Permissions.Read, Permissions.Audit },
                         false, new[] { warehouseBranch.ResourceId }, null));
-                foreach (var subject in new[] { "cost01-http-branch-auditor", "cost01-http-no-membership" })
+                foreach (var costAuditSubject in new[] { "cost01-http-branch-auditor", "cost01-http-no-membership" })
                 {
-                    Authenticate(Token(subject));
+                    Authenticate(Token(costAuditSubject));
                     using var deniedAudit = await client.GetAsync(centerAuditPath);
                     Ensure(deniedAudit.StatusCode == HttpStatusCode.Forbidden, "COST01 audit leaked outside company-wide scope");
                 }
