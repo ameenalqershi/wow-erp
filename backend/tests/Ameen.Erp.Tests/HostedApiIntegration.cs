@@ -1159,12 +1159,20 @@ public static class HostedApiIntegration
                 foreach (var inventoryReportPath in new[] { "inventory-balances", $"items/{openingItem.ResourceId}/ledger" })
                 {
                     var url = $"/api/v1/companies/{companyId}/reports/{inventoryReportPath}?from=2026-01-01&to=2026-12-31";
-                    using var mismatch = await client.GetAsync(url + $"&branchIds={journalRequest.BranchId}&warehouseId={openingWarehouse.ResourceId}");
-                    Ensure(mismatch.StatusCode == HttpStatusCode.BadRequest, "HTTP inventory report accepted warehouse outside selected branches");
-                    using var ambiguous = await client.GetAsync(url + $"&branchId={warehouseBranch.ResourceId}&branchIds={journalRequest.BranchId}");
-                    Ensure(ambiguous.StatusCode == HttpStatusCode.BadRequest, "HTTP inventory report accepted ambiguous branch selection");
-                    using var unknown = await client.GetAsync(url + $"&branchIds={Guid.NewGuid()}");
-                    Ensure(unknown.StatusCode == HttpStatusCode.NotFound, "HTTP inventory report accepted unknown branch");
+                    async Task RejectInventoryFilter(string query, HttpStatusCode status, string code)
+                    {
+                        using var rejected = await client.GetAsync(url + query);
+                        var body = await rejected.Content.ReadAsStringAsync();
+                        Ensure(rejected.StatusCode == status, $"Inventory report {inventoryReportPath}: expected {status}, got {rejected.StatusCode}: {body}");
+                        using var problem = JsonDocument.Parse(body);
+                        Ensure(problem.RootElement.GetProperty("code").GetString() == code,
+                            $"Inventory report {inventoryReportPath}: expected {code}, got {body}");
+                    }
+                    await RejectInventoryFilter($"&branchIds={journalRequest.BranchId}&warehouseId={openingWarehouse.ResourceId}",
+                        HttpStatusCode.UnprocessableEntity, "warehouse_branch_mismatch");
+                    await RejectInventoryFilter($"&branchId={warehouseBranch.ResourceId}&branchIds={journalRequest.BranchId}",
+                        HttpStatusCode.UnprocessableEntity, "ambiguous_branch_filter");
+                    await RejectInventoryFilter($"&branchIds={Guid.NewGuid()}", HttpStatusCode.NotFound, "reference_not_found");
                 }
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
