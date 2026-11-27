@@ -55,6 +55,38 @@ public static class AccountLedgerAcceptanceTests
                 page.OpeningBalance != 40 || page.ClosingBalance != 45)
                 throw new Exception("RPT02 pagination changed the source line, balance or totals");
         }
+        // RPT-CONTRACT-01/02: compare every posting account, not just the
+        // cash debit, across the same authorized historical report scope.
+        foreach (var actor in new[] { f.Clerk, f.Limited })
+        {
+            var trial = await f.Service.Report.TrialBalance(f.CompanyId, actor, date, date,
+                null, default);
+            if (trial.TotalOpeningDebit != trial.TotalOpeningCredit ||
+                trial.TotalPeriodDebit != trial.TotalPeriodCredit ||
+                trial.TotalClosingDebit != trial.TotalClosingCredit ||
+                trial.Rows.Count != 2)
+                throw new Exception("RPT01 functional currency trial balance is not balanced");
+            foreach (var row in trial.Rows)
+            {
+                var statement = await f.Service.Report.AccountLedger(f.CompanyId, row.AccountId,
+                    actor, date, date, null, 0, 1, default);
+                if (statement.Currency != trial.Currency ||
+                    !statement.BranchIds.ToHashSet().SetEquals(trial.BranchIds) ||
+                    statement.OpeningBalance != row.OpeningDebit - row.OpeningCredit ||
+                    statement.PeriodDebit != row.PeriodDebit || statement.PeriodCredit != row.PeriodCredit ||
+                    statement.ClosingBalance != row.ClosingDebit - row.ClosingCredit ||
+                    statement.ClosingBalance != statement.OpeningBalance + statement.PeriodDebit - statement.PeriodCredit)
+                    throw new Exception("RPT01/RPT02 account-level reconciliation failed: " + row.Code);
+            }
+            var grouped = await f.Service.Report.TrialBalance(f.CompanyId, actor, date, date,
+                null, default, accountLevel: 1);
+            if (grouped.TotalPeriodDebit != trial.TotalPeriodDebit ||
+                grouped.TotalPeriodCredit != trial.TotalPeriodCredit ||
+                grouped.TotalClosingDebit - grouped.TotalClosingCredit !=
+                    trial.TotalClosingDebit - trial.TotalClosingCredit)
+                throw new Exception("RPT01 hierarchy duplicated underlying movements");
+        }
+
         var restricted = await Page(f.Limited, 0, 10);
         if (restricted.Entries.TotalCount != 2 || restricted.PeriodCredit != 0 ||
             restricted.ClosingBalance != 50 || restricted.Entries.Items.Any(x => x.JournalId != z.ResourceId))
