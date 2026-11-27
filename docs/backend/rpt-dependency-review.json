@@ -1,0 +1,101 @@
+{
+  "reviewIssue": "https://github.com/ameenalqershi/wow-erp/issues/2943",
+  "evidence": "rpt-dependency-gates-20261127.md; reviewed mapping only, runtime acceptance remains scoped and pending sources remain open",
+  "coverage": {
+    "GL10": {
+      "status": "not-started",
+      "fieldCount": 14,
+      "fieldMappingSha256": "0179c34facc9164b08fb6c6442150e4263f8dbc34780b27593836f25ca9d0934"
+    },
+    "INV05": {
+      "status": "partial",
+      "fieldCount": 17,
+      "fieldMappingSha256": "01852e9535babfb455296b2e4c1eed562da71d23468eea98478cd1400f7b04ff"
+    },
+    "INV07": {
+      "status": "not-started",
+      "fieldCount": 26,
+      "fieldMappingSha256": "003c9db1c91abbd91ca3629433eb35b068ee7be52a3d4fa2c4f34cb5e4aebd4e"
+    },
+    "INV08": {
+      "status": "not-started",
+      "fieldCount": 25,
+      "fieldMappingSha256": "ba341e4baf2ad992097081b680bebf42c506a6e0cd50eb515c67da2b0993a271"
+    },
+    "INV11": {
+      "status": "not-started",
+      "fieldCount": 13,
+      "fieldMappingSha256": "09ac0821723177e8c7c80243ce19eb06f833edc5045bfd11fb2a7cdceb93de9e"
+    },
+    "INV15": {
+      "status": "not-started",
+      "fieldCount": 16,
+      "fieldMappingSha256": "58bf446154dc5c6bff725874b16cc5a9e884c4fbfad0632dd3de00fd23af2a74"
+    },
+    "PUR01": {
+      "status": "not-started",
+      "fieldCount": 26,
+      "fieldMappingSha256": "56315d90da468649e313edec647e887f5bd9f525528f8b3821cc15359ab17a4e"
+    },
+    "PUR04": {
+      "status": "not-started",
+      "fieldCount": 25,
+      "fieldMappingSha256": "7391d85502e640c554082ae8e1cb59bc6fddfaabbc7c4863c41389b4a36894fb"
+    },
+    "PUR11": {
+      "status": "not-started",
+      "fieldCount": 14,
+      "fieldMappingSha256": "b3052d09c3a3959b023e3eed3ee61ce815d37b2fd2cc254f678f577e251f7d81"
+    },
+    "RPT06": {
+      "status": "not-started",
+      "fieldCount": 12,
+      "fieldMappingSha256": "483a5c7f36dae09b0933b000438a432eb61169756b916dc30eaea002ed9fdfa0"
+    },
+    "RPT07": {
+      "status": "not-started",
+      "fieldCount": 12,
+      "fieldMappingSha256": "b0018d2f1047908c24ea12876a0141e7414a77128f32de9348ed64f0fabc09a0"
+    },
+    "RPT08": {
+      "status": "partial",
+      "fieldCount": 13,
+      "fieldMappingSha256": "8d03f25c5e31fcb6b8a79ae5c3970aac35bac47f613bdb29cafae05fd522d324"
+    },
+    "RPT09": {
+      "status": "partial",
+      "fieldCount": 11,
+      "fieldMappingSha256": "bb7a7404ab2c1c071827a1cda0096fe4c108055e9cf5b094cc141e91db2c8431"
+    },
+    "RPT10": {
+      "status": "not-started",
+      "fieldCount": 12,
+      "fieldMappingSha256": "a82e987768c46d2d4438cf7f4d09cb43527ea472a0889ee0b4b14123bf0373e0"
+    },
+    "RPT12": {
+      "status": "not-started",
+      "fieldCount": 11,
+      "fieldMappingSha256": "befcf372293214b4c0298e5dc046b463cd554c37125226affafdfc364a89e9b7"
+    },
+    "RPT13": {
+      "status": "not-started",
+      "fieldCount": 12,
+      "fieldMappingSha256": "b2af14e44e805e6c335e0681c1e816dee389e484c8a0cd476fd1ab78be76e4dd"
+    },
+    "RPT14": {
+      "status": "not-started",
+      "fieldCount": 12,
+      "fieldMappingSha256": "9c510d87657194c6f9490750dd2c9db26f8879544e2af0916ed1fe5ee0a5072e"
+    },
+    "SAL01": {
+      "status": "not-started",
+      "fieldCount": 28,
+      "fieldMappingSha256": "a0cff1cde87deeef4f2917779df94ce474c4d4e6276d8b828fea8c3ce8152775"
+    },
+    "SAL11": {
+      "status": "not-started",
+      "fieldCount": 14,
+      "fieldMappingSha256": "167e485fe992a3d671b22071ea7936275156c75c3ed099bb4c67341ed84055f5"
+    }
+  }
+}
