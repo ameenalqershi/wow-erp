@@ -318,6 +318,30 @@ public static class FoundationSqlIntegration
         await Error("permission_denied", () => Call(s => s.CostCenter.SearchCostCenters(otherId, scopedSearchActor, null, null, null, null, 0, 10, default)));
         Console.WriteLine("  SQL PASS COST01-OP01 company and branch search authorization");
         Console.WriteLine("  SQL PASS COST01-OP01 Unicode search and filtered paging");
+        int newCenterJournalCount, newCenterStockCount;
+        await using (var beforeNewCenter = Context())
+        {
+            newCenterJournalCount = await beforeNewCenter.Set<JournalEntry>().CountAsync(x => x.CompanyId == cid);
+            newCenterStockCount = await beforeNewCenter.Set<StockMovement>().CountAsync(x => x.CompanyId == cid);
+        }
+        var newCenterRequest = new CreateCostCenterRequest("FND-NEW-430", "مركز جديد", journalRequest.BranchId,
+            searchRoot.ResourceId, EnglishName: "New center", Notes: "ملاحظات");
+        var newCenterKey = Fixture.Key();
+        var newCenterReceipt = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, newCenterKey, newCenterRequest, default));
+        Ensure(await Call(s => s.CostCenter.CreateCostCenter(cid, owner, newCenterKey, newCenterRequest, default)) == newCenterReceipt,
+            "COST01 create SQL replay differs");
+        await using (var afterNewCenter = Context())
+        {
+            var newCard = await afterNewCenter.Set<CostCenter>().SingleAsync(x => x.CompanyId == cid && x.Id == newCenterReceipt.ResourceId);
+            Ensure(newCard.Revision == 1 && newCard.IsActive && newCard.ParentId == searchRoot.ResourceId &&
+                newCard.BranchId == journalRequest.BranchId && newCard.EnglishName == newCenterRequest.EnglishName &&
+                newCard.Notes == newCenterRequest.Notes, "COST01 create metadata differs");
+            Ensure(await afterNewCenter.Set<JournalEntry>().CountAsync(x => x.CompanyId == cid) == newCenterJournalCount &&
+                await afterNewCenter.Set<StockMovement>().CountAsync(x => x.CompanyId == cid) == newCenterStockCount &&
+                await afterNewCenter.Set<AuditEvent>().CountAsync(x => x.CompanyId == cid && x.ResourceId == newCard.Id) == 1,
+                "COST01 create emitted accounting movement or duplicate audit");
+        }
+        Console.WriteLine("  SQL PASS COST01-OP02 create metadata, replay and no financial movement");
         var identityRequest = new CreateCostCenterRequest("00042", "مركز المبيعات", null);
         var identityKeys = new[] { Fixture.Key(), Fixture.Key() };
         async Task<(string Code, CommandReceipt? Receipt)> TryIdentity(string identityKey)
