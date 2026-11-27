@@ -339,6 +339,40 @@ Test("RPT01: account level replaces descendants without double counting", async 
     Assert(second.Rows.Single(x => x.AccountId == group.ResourceId) is { Level: 2, IsPosting: false, ClosingDebit: 25 });
     var leaves = await f.Service.Report.TrialBalance(f.CompanyId, f.Clerk, new(2026, 1, 1), new(2026, 12, 31), null, default);
     Assert(leaves.Rows.All(x => x.IsPosting) && leaves.Rows.Any(x => x.AccountId == leaf.ResourceId && x.Level == 3));
+    // RPT01-OP03: grouped and leaf drill-through must reconcile to the
+    // displayed row using the same filters, without duplicating descendants.
+    var drill = await f.Service.Report.TrialBalanceDrilldown(f.CompanyId, f.GroupId, f.Clerk,
+        new(2026, 1, 1), new(2026, 12, 31), null, default, accountLevel: 1);
+    Assert(drill.Summary == root.Rows.Single(x => x.AccountId == f.GroupId));
+    Assert(drill.SummaryAccountLevel == 1 && drill.Detail.AccountLevel == null &&
+        drill.Detail.Rows.Select(x => x.AccountId).ToHashSet().SetEquals(new[] { f.CashId, leaf.ResourceId }));
+    Assert(drill.Detail.TotalPeriodDebit == 125 && drill.Detail.TotalClosingDebit == 125);
+    foreach (var row in drill.Detail.Rows)
+    {
+        var ledger = await f.Service.Report.AccountLedger(f.CompanyId, row.AccountId, f.Clerk,
+            drill.Detail.From, drill.Detail.To, null, 0, 10, default);
+        Assert(ledger.OpeningBalance == row.OpeningDebit - row.OpeningCredit &&
+            ledger.PeriodDebit == row.PeriodDebit && ledger.PeriodCredit == row.PeriodCredit &&
+            ledger.ClosingBalance == row.ClosingDebit - row.ClosingCredit &&
+            ledger.Entries.Items.All(x => x.JournalId != Guid.Empty));
+    }
+    var direct = await f.Service.Report.TrialBalanceDrilldown(f.CompanyId, leaf.ResourceId, f.Clerk,
+        new(2026, 1, 1), new(2026, 12, 31), null, default);
+    Assert(direct.Detail.Rows.Single() == direct.Summary && direct.Summary.ClosingDebit == 25);
+    var nested = await f.Service.Report.TrialBalanceDrilldown(f.CompanyId, group.ResourceId, f.Clerk,
+        new(2026, 1, 1), new(2026, 12, 31), null, default, accountLevel: 2);
+    Assert(nested.Detail.Rows.Single().AccountId == leaf.ResourceId && nested.Summary.ClosingDebit == 25);
+    await Error("report_row_not_found", () => f.Service.Report.TrialBalanceDrilldown(f.CompanyId, leaf.ResourceId, f.Clerk,
+        new(2026, 1, 1), new(2026, 12, 31), null, default, accountLevel: 1));
+    await Error("report_row_not_found", () => f.Service.Report.TrialBalanceDrilldown(f.CompanyId, Guid.NewGuid(), f.Clerk,
+        new(2026, 1, 1), new(2026, 12, 31), null, default, accountLevel: 1));
+    var scoped = await f.Service.Report.TrialBalanceDrilldown(f.CompanyId, f.GroupId, f.Limited,
+        new(2026, 1, 1), new(2026, 12, 31), f.BranchId, default, accountLevel: 1);
+    Assert(scoped.Detail.BranchIds.SequenceEqual(new[] { f.BranchId }) && scoped.Summary.ClosingDebit == 125);
+    await Error("branch_access_denied", () => f.Service.Report.TrialBalanceDrilldown(f.CompanyId, f.GroupId, f.Limited,
+        new(2026, 1, 1), new(2026, 12, 31), f.OtherBranchId, default, accountLevel: 1));
+    await Error("report_row_not_found", () => f.Service.Report.TrialBalanceDrilldown(f.CompanyId, f.GroupId, f.Clerk,
+        new(2026, 1, 1), new(2026, 1, 1), null, default, accountLevel: 1, showZero: false));
 });
 Test("RPT01: hide zero retains accounts with offsetting posted movement", async f =>
 {

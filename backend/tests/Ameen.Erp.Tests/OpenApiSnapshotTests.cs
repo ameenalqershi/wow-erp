@@ -71,7 +71,7 @@ public static class OpenApiSnapshotTests
                 if (!cashBoxProperties.TryGetProperty(name, out _))
                     throw new Exception("CASH01 original field missing from OpenAPI: " + name);
             var cashPaths = json.RootElement.GetProperty("paths");
-            foreach (var report in new[] { "trial-balance", "accounts/{accountId}/ledger", "inventory-balances", "items/{itemId}/ledger" })
+            foreach (var report in new[] { "trial-balance", "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger", "inventory-balances", "items/{itemId}/ledger" })
             {
                 var operation = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/" + report).GetProperty("get");
                 var parameter = operation.GetProperty("parameters").EnumerateArray()

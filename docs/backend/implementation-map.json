@@ -2767,8 +2767,8 @@
       "test_file": "backend/tests/Ameen.Erp.Tests/CashCountFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashCountSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     },
     "RPT01": {
-      "api": "GET /companies/{companyId}/reports/trial-balance",
-      "implemented": "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج",
+      "api": "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown",
+      "implemented": "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ",
       "remaining": "طرق عرض العملات ومستوى التفصيل والطباعة والتصدير وتحسين أحجام كبيرة",
       "fields": {
         "RPT01-F01": {

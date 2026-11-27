@@ -24,6 +24,12 @@ internal static class ReportsEndpoints
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
             .Produces<TrialBalanceResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
+        app.MapGet(p + "/reports/trial-balance/{accountId:guid}/drilldown", async (Guid companyId, Guid accountId,
+            [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds,
+            Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
+            Results.Ok(await s.TrialBalanceDrilldown(companyId, accountId, Actor(h), Date(from), Date(to),
+                branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
+            .Produces<TrialBalanceDrilldownResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/accounts/{accountId:guid}/ledger", async (Guid companyId, Guid accountId,
             [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds, int? offset, int? limit, Guid? costCenterId, string? externalReference,
             ReportService s, HttpContext h, CancellationToken ct) =>
