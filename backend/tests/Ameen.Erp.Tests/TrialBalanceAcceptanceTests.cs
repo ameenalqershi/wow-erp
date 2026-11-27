@@ -43,6 +43,28 @@ public static class TrialBalanceAcceptanceTests
             throw new Exception("RPT01 rejected or unposted journal affected report or command effects");
         CheckReport(after, 40, 66.50m);
 
+        // RPT01-OP05: an independent export permission, identical accounting
+        // scope, safe text cells and one extraction event only on success.
+        await Reject("permission_denied", async () => { await f.Service.Report.TrialBalanceExport(
+            f.CompanyId, f.Clerk, date, date, null, default); });
+        var member = f.Store.All<Membership>().Single(x => x.Subject == f.Limited.Subject);
+        await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(),
+            new(f.Limited.Subject, member.GrantedPermissions.Append(Permissions.TrialBalanceExport).ToArray(),
+                false, member.BranchIds, member.Version), default);
+        var expected = await Read(f.Limited);
+        var exportCounts = (f.Store.Count<AuditEvent>(), f.Store.Count<OutboxEvent>(), f.Store.Count<IdempotencyRecord>());
+        var xlsx = await f.Service.Report.TrialBalanceExport(f.CompanyId, f.Limited, date, date, null, default, showZero: false);
+        TrialBalanceExportTests.AssertWorkbook(xlsx, expected);
+        await Reject("branch_access_denied", async () => { await f.Service.Report.TrialBalanceExport(
+            f.CompanyId, f.Limited, date, date, f.OtherBranchId, default); });
+        await Reject("invalid_date_range", async () => { await f.Service.Report.TrialBalanceExport(
+            f.CompanyId, f.Limited, date, date.AddDays(-1), null, default); });
+        if ((f.Store.Count<AuditEvent>(), f.Store.Count<OutboxEvent>(), f.Store.Count<IdempotencyRecord>()) !=
+            (exportCounts.Item1 + 1, exportCounts.Item2, exportCounts.Item3) ||
+            f.Store.All<AuditEvent>().Count(x => x.Action == "report.rpt01.export" && x.ActorId == f.Limited.Subject) != 1)
+            throw new Exception("RPT01 export audit or command effects mismatch");
+
+
         void CheckReport(TrialBalanceResult report, decimal opening, decimal movement)
         {
             if (report.Currency != "SAR" || report.CompanyId != f.CompanyId || report.From != date || report.To != date ||

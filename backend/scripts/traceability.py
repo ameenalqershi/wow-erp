@@ -522,11 +522,11 @@ for n, binding in {
 MAP["CASH11"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name
     for name in ["CashCountFoundationTests.cs", "CashCountSqlIntegration.cs", "SqlIntegration.cs"])
 
-screen("RPT01", "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print",
-       "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات", "طرق عرض العملات ومستوى التفصيل والتصدير وتحسين أحجام كبيرة",
+screen("RPT01", "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print; GET /companies/{companyId}/reports/trial-balance/export",
+       "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات وصلاحية مستقلة وأثر استخراج؛ تصدير Excel بنفس المرشحات وصلاحية مستقلة وأثر استخراج", "طرق عرض العملات ومستوى التفصيل وتحسين أحجام كبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth)", 10: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 11: "query.showZero"})
-screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
-       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة", "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
+screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger; GET /companies/{companyId}/reports/accounts/{accountId}/ledger/print",
+       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة؛ معاينة طباعة كاملة بنفس المرشحات ومصدر ومركز السطر وصلاحية مستقلة وأثر استخراج", "نطاق حسابات وتصدير وطرق عرض إضافية",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 11: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 12: "query.externalReference (exact case-sensitive match)"})
 
 screen("RPT08", "GET /companies/{companyId}/reports/inventory-balances",
@@ -592,7 +592,7 @@ RULES = {
     "BR10": ("manual-journal", "سعر موجب مؤرخ ثابت ومبالغ أصلية ووظيفية وعكس تاريخي", "Program.cs: BR10"),
     "BR14": ("partial", "منع الإقفال مع قيود/افتتاحات معلقة أو افتتاح مخزون غير مطابق لقيده؛ الإقفال الشامل والسنوي لاحقًا", "Program.cs: BR03; SqlIntegration.cs: close/post race"),
     "BR15": ("partial", "تقارير الأستاذ تستبعد المسودات؛ لا تقارير ذمم منفذة", "Program.cs: RPT01 RPT02"),
-    "BR18": ("partial", "عزل الشركات والفروع وعضويات حالية؛ نطاق الحساب والسعر والتصدير لاحقًا", "Program.cs: BR18 / SYS06"),
+    "BR18": ("partial", "عزل الشركات والفروع وعضويات حالية؛ صلاحيتا طباعة RPT01/RPT02 مستقلتان مع أثر تدقيق الاستخراج؛ تصدير RPT01 بصلاحية مستقلة وأثر استخراج؛ نطاق الحساب والسعر وبقية التصدير لاحقًا", "Program.cs: BR18 / SYS06"),
     "BR20": ("not-started", "لم تنفذ ضرائب أو ملفات تشريعية أو تكاملات دولة", "none"),
 }
 

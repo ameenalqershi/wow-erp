@@ -477,6 +477,59 @@ public static class HostedApiIntegration
                 using (var missingAccount = await client.GetAsync(gl03LedgerPath.Replace(
                     journalRequest.Lines[0].AccountId.ToString(), Guid.NewGuid().ToString())))
                     Ensure(missingAccount.StatusCode == HttpStatusCode.NotFound, "RPT02 returned nonexistent account");
+                var ledgerPrinter = "rpt02-scoped-printer";
+                var trialPrinter = "rpt01-scoped-printer";
+                Authenticate(Token("sql-clerk"));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(ledgerPrinter, new[] { Permissions.Read, Permissions.AccountLedgerPrint },
+                        false, new[] { journalRequest.BranchId }, null));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(trialPrinter, new[] { Permissions.Read, Permissions.TrialBalancePrint },
+                        false, new[] { journalRequest.BranchId }, null));
+                Authenticate(Token(sourceReader));
+                var ledgerPrintPath = gl03LedgerPath.Replace("/ledger?", "/ledger/print?");
+                var beforeLedgerPrint = await ReadOnlyCounts(connection, companyId);
+                using (var readOnlyDenied = await client.GetAsync(ledgerPrintPath))
+                    Ensure(readOnlyDenied.StatusCode == HttpStatusCode.Forbidden, "RPT02 read permission granted print");
+                Authenticate(Token(trialPrinter));
+                using (var crossScreenDenied = await client.GetAsync(ledgerPrintPath))
+                    Ensure(crossScreenDenied.StatusCode == HttpStatusCode.Forbidden, "RPT01 print granted RPT02 print");
+                Authenticate(Token(ledgerPrinter));
+                using (var printLedger = await client.GetAsync(ledgerPrintPath))
+                using (var ledgerJson = await client.GetAsync(gl03LedgerPath))
+                {
+                    printLedger.EnsureSuccessStatusCode(); ledgerJson.EnsureSuccessStatusCode();
+                    var html = await printLedger.Content.ReadAsStringAsync();
+                    var statement = JsonSerializer.Deserialize<AccountLedgerResult>(
+                        await ledgerJson.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var entry = statement.Entries.Items.Single();
+                    var numbers = string.Concat(new[] { entry.Debit, entry.Credit, entry.RunningBalance }.Select(x =>
+                        "<td class=\"num\">" + x.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture) + "</td>"));
+                    Ensure(printLedger.Content.Headers.ContentType?.MediaType == "text/html" &&
+                        printLedger.Headers.TryGetValues("Cache-Control", out var ledgerCache) && ledgerCache.Any(x => x.Contains("no-store")) &&
+                        printLedger.Headers.TryGetValues("Content-Security-Policy", out var ledgerPolicy) && ledgerPolicy.Any(x => x.Contains("default-src 'none'")) &&
+                        html.Contains("وقت الاستخراج UTC") && html.Contains(companyId.ToString()) && html.Contains("000070-PRINT") &&
+                        html.Contains(entry.JournalId.ToString()) && html.Contains(System.Net.WebUtility.HtmlEncode(entry.Number)) &&
+                        html.Contains(System.Net.WebUtility.HtmlEncode(entry.Description)) && html.Contains("<td>Manual</td>") &&
+                        html.Contains(entry.CurrencyCode) && html.Contains(numbers),
+                        "RPT02 print did not match JSON and source metadata");
+                }
+                using (var emptyPrint = await client.GetAsync(ledgerPrintPath.Replace("000070-PRINT", "NO-RPT02-MATCH")))
+                    Ensure(emptyPrint.StatusCode == HttpStatusCode.OK && !(await emptyPrint.Content.ReadAsStringAsync()).Contains("data-journal-id="),
+                        "RPT02 empty print included unrelated rows");
+                using (var invalidPrintPeriod = await client.GetAsync(ledgerPrintPath.Replace("to=2026-12-31", "to=2025-12-31")))
+                    Ensure(invalidPrintPeriod.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT02 print accepted invalid dates");
+                Authenticate(Token("rpt02-print-outsider"));
+                using (var deniedLedgerPrint = await client.GetAsync(ledgerPrintPath))
+                    Ensure(deniedLedgerPrint.StatusCode == HttpStatusCode.Forbidden, "RPT02 print disclosed unauthorized statement");
+                Authenticate(Token(sourceReader));
+                var afterLedgerPrint = await ReadOnlyCounts(connection, companyId);
+                Ensure(afterLedgerPrint == (beforeLedgerPrint.Journals, beforeLedgerPrint.Audits + 2,
+                    beforeLedgerPrint.Receipts, beforeLedgerPrint.Outbox), "RPT02 print changed accounting or missing extraction audit");
+                await using (var printDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await printDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt02.print" && x.ActorId == ledgerPrinter) == 2, "RPT02 SQL extraction actor/action mismatch");
+                Console.WriteLine("  HOST PASS RPT02-OP04 printed statement matches JSON and source, protected headers and tenant denial");
                 Console.WriteLine("  HOST PASS RPT02-OP02 stable display totals, empty and exhausted page, scoped JWT and invalid requests");
                 using (var missingSource = await client.GetAsync(path + $"/{Guid.NewGuid()}"))
                     Ensure(missingSource.StatusCode == HttpStatusCode.NotFound,
@@ -561,6 +614,12 @@ public static class HostedApiIntegration
                 var trialPrintPath = $"/api/v1/companies/{companyId}/reports/trial-balance/print?{printScope}";
                 var beforeTrialPrint = await ReadOnlyCounts(connection, companyId);
                 Authenticate(Token(sourceReader));
+                using (var readOnlyDenied = await client.GetAsync(trialPrintPath))
+                    Ensure(readOnlyDenied.StatusCode == HttpStatusCode.Forbidden, "RPT01 read permission granted print");
+                Authenticate(Token(ledgerPrinter));
+                using (var crossScreenDenied = await client.GetAsync(trialPrintPath))
+                    Ensure(crossScreenDenied.StatusCode == HttpStatusCode.Forbidden, "RPT02 print granted RPT01 print");
+                Authenticate(Token(trialPrinter));
                 using (var printed = await client.GetAsync(trialPrintPath))
                 using (var reportResponse = await client.GetAsync(trialPath + "&showZero=false"))
                 {
@@ -592,9 +651,50 @@ public static class HostedApiIntegration
                 using (var deniedPrint = await client.GetAsync(trialPrintPath))
                     Ensure(deniedPrint.StatusCode == HttpStatusCode.Forbidden, "RPT01 print leaked to nonmember");
                 Authenticate(Token("sql-approver"));
-                Ensure(beforeTrialPrint == await ReadOnlyCounts(connection, companyId), "RPT01 print created command effects");
+                var afterTrialPrint = await ReadOnlyCounts(connection, companyId);
+                Ensure(afterTrialPrint == (beforeTrialPrint.Journals, beforeTrialPrint.Audits + 1,
+                    beforeTrialPrint.Receipts, beforeTrialPrint.Outbox), "RPT01 print changed accounting or missing extraction audit");
+                await using (var printDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await printDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt01.print" && x.ActorId == trialPrinter) == 1, "RPT01 SQL extraction actor/action mismatch");
                 Console.WriteLine("  HOST PASS RPT01-OP04 printed rows and totals equal JSON, protected metadata and tenant denial");
                 Console.WriteLine("  HOST PASS RPT01-OP03 grouped trial balance drilldown to posting accounts and ledger; scoped JWT and rejection");
+                // RPT01-OP05: a scoped export-only grant in addition to reading.
+                var trialExporter = "rpt01-scoped-exporter";
+                Authenticate(Token("sql-clerk"));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(trialExporter, new[] { Permissions.Read, Permissions.TrialBalanceExport },
+                        false, new[] { journalRequest.BranchId }, null));
+                var exportPath = trialPath.Replace("/trial-balance?", "/trial-balance/export?") + "&showZero=false&accountLevel=1";
+                var beforeExport = await ReadOnlyCounts(connection, companyId);
+                Authenticate(Token(sourceReader));
+                using (var readOnlyExport = await client.GetAsync(exportPath))
+                    Ensure(readOnlyExport.StatusCode == HttpStatusCode.Forbidden, "RPT01 read permission granted export");
+                Authenticate(Token(trialExporter));
+                using (var exported = await client.GetAsync(exportPath))
+                using (var sourceReport = await client.GetAsync(trialPath + "&showZero=false&accountLevel=1"))
+                {
+                    exported.EnsureSuccessStatusCode(); sourceReport.EnsureSuccessStatusCode();
+                    Ensure(exported.Content.Headers.ContentType?.MediaType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
+                        exported.Content.Headers.ContentDisposition?.FileName?.Contains("trial-balance.xlsx") == true &&
+                        exported.Headers.TryGetValues("Cache-Control", out var exportCache) && exportCache.Any(x => x.Contains("no-store")),
+                        "RPT01 export attachment or privacy contract differs");
+                    var expectedExport = JsonSerializer.Deserialize<TrialBalanceResult>(
+                        await sourceReport.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    TrialBalanceExportTests.AssertWorkbook(await exported.Content.ReadAsByteArrayAsync(), expectedExport);
+                }
+                using (var invalidExport = await client.GetAsync(exportPath.Replace("to=2026-12-31", "to=2025-12-31")))
+                    Ensure(invalidExport.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT01 export accepted invalid dates");
+                Authenticate(Token("rpt01-export-outsider"));
+                using (var deniedExport = await client.GetAsync(exportPath))
+                    Ensure(deniedExport.StatusCode == HttpStatusCode.Forbidden, "RPT01 export disclosed company report");
+                Authenticate(Token("sql-approver"));
+                Ensure(await ReadOnlyCounts(connection, companyId) == (beforeExport.Journals, beforeExport.Audits + 1,
+                    beforeExport.Receipts, beforeExport.Outbox), "RPT01 export accounting or audit effect mismatch");
+                await using (var exportDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await exportDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt01.export" && x.ActorId == trialExporter) == 1, "RPT01 export SQL audit missing");
+                Console.WriteLine("  HOST PASS RPT01-OP05 Excel rows and totals, scoped permission and audited extraction");
                 Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");
                 Ensure(hierarchy.StatusCode == HttpStatusCode.OK, "Production report filters failed");

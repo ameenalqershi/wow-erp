@@ -4,6 +4,9 @@ public static class Permissions
 {
     public const string Read = "ledger.read";
     public const string InventoryLedgerPrint = "report.rpt09.print";
+    public const string TrialBalanceExport = "report.rpt01.export";
+    public const string TrialBalancePrint = "report.rpt01.print";
+    public const string AccountLedgerPrint = "report.rpt02.print";
     public const string Configure = "company.configure";
     public const string Members = "members.manage";
     public const string Draft = "journal.write";
@@ -19,5 +22,5 @@ public static class Permissions
     public const string InventoryApprove = "inventory.opening.approve";
     public const string InventoryPost = "inventory.opening.post";
     public const string InventoryReverse = "inventory.opening.reverse";
-    public static readonly string[] All = { Read, InventoryLedgerPrint, Configure, Members, Draft, Approve, Post, Reverse, PeriodClose, PeriodReopen, Audit, RecurringManage, RecurringGenerate, InventoryWrite, InventoryApprove, InventoryPost, InventoryReverse };
+    public static readonly string[] All = { Read, InventoryLedgerPrint, TrialBalanceExport, TrialBalancePrint, AccountLedgerPrint, Configure, Members, Draft, Approve, Post, Reverse, PeriodClose, PeriodReopen, Audit, RecurringManage, RecurringGenerate, InventoryWrite, InventoryApprove, InventoryPost, InventoryReverse };
 }

@@ -2767,9 +2767,9 @@
       "test_file": "backend/tests/Ameen.Erp.Tests/CashCountFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashCountSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     },
     "RPT01": {
-      "api": "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print",
-      "implemented": "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات",
-      "remaining": "طرق عرض العملات ومستوى التفصيل والتصدير وتحسين أحجام كبيرة",
+      "api": "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print; GET /companies/{companyId}/reports/trial-balance/export",
+      "implemented": "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات وصلاحية مستقلة وأثر استخراج؛ تصدير Excel بنفس المرشحات وصلاحية مستقلة وأثر استخراج",
+      "remaining": "طرق عرض العملات ومستوى التفصيل وتحسين أحجام كبيرة",
       "fields": {
         "RPT01-F01": {
           "status": "implemented",
@@ -2811,9 +2811,9 @@
       "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerAcceptanceTests.cs; backend/tests/Ameen.Erp.Tests/TrialBalanceAcceptanceTests.cs; backend/tests/Ameen.Erp.Tests/BalancedJournalLedgerSqlAcceptance.cs"
     },
     "RPT02": {
-      "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
-      "implemented": "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة",
-      "remaining": "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
+      "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger; GET /companies/{companyId}/reports/accounts/{accountId}/ledger/print",
+      "implemented": "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة؛ معاينة طباعة كاملة بنفس المرشحات ومصدر ومركز السطر وصلاحية مستقلة وأثر استخراج",
+      "remaining": "نطاق حسابات وتصدير وطرق عرض إضافية",
       "fields": {
         "RPT02-F01": {
           "status": "implemented",
