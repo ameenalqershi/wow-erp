@@ -1433,6 +1433,40 @@ public static class HostedApiIntegration
                 using (var rpt09Restored = await client.GetAsync(rpt09LedgerUrl))
                     Ensure(rpt09Restored.StatusCode == HttpStatusCode.OK, "RPT09 valid historical source failed after fixture restore");
                 Console.WriteLine("  HOST PASS RPT09 CTRL01/AC02 source conversion conflict and restored valid report");
+                var rpt09PrintUrl = rpt09LedgerUrl.Replace("/ledger?", "/ledger/print?") + "&offset=1&limit=1";
+                var rpt09PrintBefore = await ReadOnlyCounts(connection, companyId);
+                using (var rpt09Printed = await client.GetAsync(rpt09PrintUrl))
+                using (var rpt09Json = await client.GetAsync(rpt09LedgerUrl + "&offset=1&limit=1"))
+                {
+                    rpt09Printed.EnsureSuccessStatusCode(); rpt09Json.EnsureSuccessStatusCode();
+                    var html = await rpt09Printed.Content.ReadAsStringAsync();
+                    var report = JsonSerializer.Deserialize<InventoryLedgerResult>(await rpt09Json.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var row = report.Rows.Items.Single();
+                    Ensure(rpt09Printed.Content.Headers.ContentType?.MediaType == "text/html" &&
+                        rpt09Printed.Headers.TryGetValues("Cache-Control", out var rpt09Cache) && rpt09Cache.Any(x => x.Contains("no-store")) &&
+                        rpt09Printed.Headers.TryGetValues("Content-Security-Policy", out var rpt09Csp) && rpt09Csp.Any(x => x.Contains("default-src 'none'")) &&
+                        html.Contains("بطاقة الصنف والحركة") && html.Contains("وقت الاستخراج UTC") &&
+                        html.Contains(companyId.ToString()) && html.Contains(row.OpeningId.ToString()) &&
+                        html.Contains(row.JournalId.ToString()) && html.Contains(row.MovementId.ToString()) &&
+                        !html.Contains(postedOpeningJournalId.ToString()) && html.Contains("HTTP-RPT09-BOX") &&
+                        html.Contains("الإجماليات تخص كامل نطاق المرشحات"), "RPT09 print missing scope, page or historical source");
+                    string Rpt09PrintAmounts(params decimal[] values) => string.Concat(values.Select(x =>
+                        "<td class=\"num\">" + x.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture) + "</td>"));
+                    Ensure(html.Contains(Rpt09PrintAmounts(row.InQuantity, row.OutQuantity, row.InValue, row.OutValue, row.RunningQuantity, row.RunningValue)) &&
+                        html.Contains(Rpt09PrintAmounts(report.InQuantity, report.InValue)) &&
+                        html.Contains(Rpt09PrintAmounts(report.OutQuantity, report.OutValue)) &&
+                        html.Contains(Rpt09PrintAmounts(row.DocumentUnits[0].Quantity, row.DocumentUnits[0].FactorToBase, row.DocumentUnits[0].UnitCost, row.DocumentUnits[0].Value)),
+                        "RPT09 print differs from JSON quantities, values or costs");
+                }
+                using (var rpt09InvalidPrint = await client.GetAsync(rpt09PrintUrl.Replace("limit=1", "limit=201")))
+                    Ensure(rpt09InvalidPrint.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT09 print accepted oversized page");
+                Authenticate(Token("audit-no-membership"));
+                using (var rpt09DeniedPrint = await client.GetAsync(rpt09PrintUrl))
+                    Ensure(rpt09DeniedPrint.StatusCode == HttpStatusCode.Forbidden, "RPT09 print exposed another tenant");
+                Authenticate(Token("sql-owner"));
+                Ensure(rpt09PrintBefore == await ReadOnlyCounts(connection, companyId), "RPT09 print created command effects");
+                Console.WriteLine("  HOST PASS RPT09 OP04 protected printed page, full totals, historical units and tenant denial");
+
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
 
