@@ -29,6 +29,10 @@
 
 يعطي كل صف رقم السطر في [قاموس الحقول](../../muhaseb-erp-analysis/data/fields.csv) للاطلاع على النوع والمصدر والإلزام والافتراضي والتحقق وشرط الظهور، ورقم السطر في [مصفوفة التنفيذ](fields-implementation.csv) لحالة الربط والعقد. توزع الحالات عند المراجعة إلى 349 منفذاً و46 للتدقيق و4 مشتقة و248 جزئية و2,112 معلقة. هذه حالات المصفوفة، ويخص دليل التشغيل كل ميزة على حدة. يمكن إعادة المطابقة بأمر `python3 backend/scripts/audit_field_task_crosswalk.py <snapshot-dir> --check` باستخدام تصدير الترحيل الذي يحتوي على ملفات تفاصيل المهام وعروض المصدر وجدول قضايا GitHub.
 
+## RPT-CONTRACT-01/02 — تدقيق عقد ميزان المراجعة ودفتر الأستاذ (27 نوفمبر 2026)
+
+القضيتان #2011 و#2012: [مصفوفة مطابقة العقد والحقول والضوابط والفجوات](rpt-trial-ledger-contract-audit.md) تغطي 23 حقلاً أصلياً (13 مرتبطة، 5 جزئية، 5 معلقة). وسّع اختبار AccountLedgerAcceptanceTests مطابقة الحسابات المدينة والدائنة عبر نطاق الفروع الكلي والمحدود مع ميزان المراجعة والإجماليات وعدم ازدواج التجميع. هذا تدقيق مستقل لا يُغيّر حالة RPT01/02 الجزئية ولا يثبت التصدير أو الطباعة أو سياسة العملات أو الاتساق بين طلبات متزامنة.
+
 ## مطابقة مخطط التقارير — 27 نوفمبر 2026
 
 اكتمل نطاق مراجعة DIAG-module-RPT في القضية #560. طابقت المراجعة 16 عقدة و15 وصلة و14 شاشة و164 حقلًا بين المخططين والمواصفات والمصفوفة، ووثّقت أربع شاشات جزئية وعشر شاشات لم يبدأ تنفيذها. [دليل المطابقة لكل شاشة](rpt-diagram-audit.md)
@@ -1708,7 +1712,3 @@ Added a read-only audit of the complete original `muhaseb-erp-analysis/docs/08-r
 ## Combined SPEC05–SPEC08 validation (2026-11-05)
 
 PR #171 exact head `32dd2245a10b7dea861774e228719ecbfc38603d` passed GitHub Actions run `42108701864` (run 1073): Python `79/79`, backend/.NET + isolated SQL + HTTP/JWT/OpenAPI verification `533/533`, API publish succeeded, SQL cleanup succeeded. PR #171 remains open and unmerged for SUPERVISOR review. This CI validates the current backend baseline and the four audit guards; it does not mean the 30 AT scenarios, 19 reports, 150 reference screen comparisons, backup/restore or other blocked operational acceptance work has been executed.
-
-## RPT-CONTRACT-01/02 — تدقيق عقد ميزان المراجعة ودفتر الأستاذ (27 نوفمبر 2026)
-
-القضيتان #2011 و#2012: [مصفوفة مطابقة العقد والحقول والضوابط والفجوات](rpt-trial-ledger-contract-audit.md) تغطي 23 حقلاً أصلياً (13 مرتبطة، 5 جزئية، 5 معلقة). وسّع اختبار AccountLedgerAcceptanceTests مطابقة الحسابات المدينة والدائنة عبر نطاق الفروع الكلي والمحدود مع ميزان المراجعة والإجماليات وعدم ازدواج التجميع. هذا تدقيق مستقل لا يُغيّر حالة RPT01/02 الجزئية ولا يثبت التصدير أو الطباعة أو سياسة العملات أو الاتساق بين طلبات متزامنة.
