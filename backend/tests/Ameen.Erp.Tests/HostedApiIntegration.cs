@@ -515,6 +515,49 @@ public static class HostedApiIntegration
                 using (var deniedTrial = await client.GetAsync(trialPath))
                     Ensure(deniedTrial.StatusCode == HttpStatusCode.Forbidden, "RPT01 leaked trial balance to nonmember");
                 Authenticate(Token("sql-approver"));
+                // RPT01-OP03: authorized SQL-backed grouped display to posting
+                // accounts, then existing ledger/source route with same scope.
+                Authenticate(Token(sourceReader));
+                var drillScope = trialPath.Split('?')[1] + "&accountLevel=1&showZero=false";
+                using (var groupedResponse = await client.GetAsync(trialPath + "&accountLevel=1&showZero=false"))
+                {
+                    groupedResponse.EnsureSuccessStatusCode();
+                    var grouped = JsonSerializer.Deserialize<TrialBalanceResult>(
+                        await groupedResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    foreach (var row in grouped.Rows)
+                    {
+                        var drillPath = $"/api/v1/companies/{companyId}/reports/trial-balance/{row.AccountId}/drilldown?{drillScope}";
+                        using var drillResponse = await client.GetAsync(drillPath);
+                        drillResponse.EnsureSuccessStatusCode();
+                        var drill = JsonSerializer.Deserialize<TrialBalanceDrilldownResult>(
+                            await drillResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                        Ensure(drill.Summary == row && drill.SummaryAccountLevel == 1 &&
+                            drill.Detail.BranchIds.SequenceEqual(grouped.BranchIds) && drill.Detail.Rows.All(x => x.IsPosting) &&
+                            drill.Detail.TotalOpeningDebit - drill.Detail.TotalOpeningCredit == row.OpeningDebit - row.OpeningCredit &&
+                            drill.Detail.TotalPeriodDebit == row.PeriodDebit && drill.Detail.TotalPeriodCredit == row.PeriodCredit &&
+                            drill.Detail.TotalClosingDebit - drill.Detail.TotalClosingCredit == row.ClosingDebit - row.ClosingCredit,
+                            "RPT01 grouped drilldown failed to reconcile");
+                        foreach (var leaf in drill.Detail.Rows)
+                        {
+                            using var ledgerResponse = await client.GetAsync(
+                                $"/api/v1/companies/{companyId}/reports/accounts/{leaf.AccountId}/ledger?" + trialPath.Split('?')[1]);
+                            ledgerResponse.EnsureSuccessStatusCode();
+                            var ledger = JsonSerializer.Deserialize<AccountLedgerResult>(
+                                await ledgerResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                            Ensure(ledger.OpeningBalance == leaf.OpeningDebit - leaf.OpeningCredit &&
+                                ledger.PeriodDebit == leaf.PeriodDebit && ledger.PeriodCredit == leaf.PeriodCredit &&
+                                ledger.ClosingBalance == leaf.ClosingDebit - leaf.ClosingCredit, "RPT01 drilldown to ledger differs");
+                        }
+                    }
+                }
+                var missingDrill = $"/api/v1/companies/{companyId}/reports/trial-balance/{Guid.NewGuid()}/drilldown?{drillScope}";
+                using (var missingRow = await client.GetAsync(missingDrill))
+                    Ensure(missingRow.StatusCode == HttpStatusCode.NotFound, "RPT01 missing drill row disclosed");
+                Authenticate(Token("rpt01-nonmember"));
+                using (var deniedDrill = await client.GetAsync(missingDrill))
+                    Ensure(deniedDrill.StatusCode == HttpStatusCode.Forbidden, "RPT01 drilldown bypassed tenant authorization");
+                Authenticate(Token("sql-approver"));
+                Console.WriteLine("  HOST PASS RPT01-OP03 grouped trial balance drilldown to posting accounts and ledger; scoped JWT and rejection");
                 Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");
                 Ensure(hierarchy.StatusCode == HttpStatusCode.OK, "Production report filters failed");
