@@ -1708,3 +1708,7 @@ Added a read-only audit of the complete original `muhaseb-erp-analysis/docs/08-r
 ## Combined SPEC05–SPEC08 validation (2026-11-05)
 
 PR #171 exact head `32dd2245a10b7dea861774e228719ecbfc38603d` passed GitHub Actions run `42108701864` (run 1073): Python `79/79`, backend/.NET + isolated SQL + HTTP/JWT/OpenAPI verification `533/533`, API publish succeeded, SQL cleanup succeeded. PR #171 remains open and unmerged for SUPERVISOR review. This CI validates the current backend baseline and the four audit guards; it does not mean the 30 AT scenarios, 19 reports, 150 reference screen comparisons, backup/restore or other blocked operational acceptance work has been executed.
+
+## تدقيق عقود القوائم المالية والتدفقات — 27 نوفمبر 2026
+
+نطاق تدقيق التغطية للقضايا #2015–#2017: مطابقة RC06/07/08 مع RPT03/RPT04، جميع 23 حقلًا من القاموس، المخطط، قواعد الأعمال، GL13 والأستاذ وعقد OpenAPI والاختبارات. [الدليل التفصيلي](rpt-financial-contract-audit-20261127.md). لا توجد مسارات تقارير تشغيلية لهذه الشاشات على النسخة المراجعة؛ تبقى الحقول pending والشاشتان not-started، ولا تُحتسب زيادة في إنجاز الوظائف.
