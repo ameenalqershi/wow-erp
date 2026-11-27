@@ -65,18 +65,20 @@ public static class CostCenterTests
             var before = await Get(f, edited);
             Ensure(before.EnglishName == "Center Ω" && before.Notes == "ملاحظات" && before.ParentId is null && before.IsActive);
             var key = Fixture.Key();
-            var status = new SetCostCenterStatusRequest(before.Version, false, "تعطيل");
+            var beforeVersion = before.Version;
+            var beforeRevision = before.Revision;
+            var status = new SetCostCenterStatusRequest(beforeVersion, false, "تعطيل");
             var auditBefore = (await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, before.Id, f.Owner, 0, 10, default)).TotalCount;
             f.Store.FailBeforeCommit = true;
             try { await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, key, status, default); throw new Exception("Expected rollback"); }
             catch (IOException) { }
-            Ensure((await Get(f, edited)).Version == before.Version && (await Get(f, edited)).IsActive);
+            Ensure((await Get(f, edited)).Version == beforeVersion && (await Get(f, edited)).IsActive);
             var disabled = await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, key, status, default);
             Ensure(await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, key, status, default) == disabled);
             await Error("version_conflict", () => f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, Fixture.Key(), status, default));
             await Error("permission_denied", () => f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Limited, Fixture.Key(), new(disabled.Version, true, "تفعيل"), default));
             var after = await Get(f, disabled);
-            Ensure(!after.IsActive && after.Revision == before.Revision + 1 && after.EnglishName == before.EnglishName &&
+            Ensure(!after.IsActive && after.Revision == beforeRevision + 1 && after.EnglishName == before.EnglishName &&
                 after.Notes == before.Notes && after.ParentId == before.ParentId &&
                 (await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, before.Id, f.Owner, 0, 10, default)).TotalCount == auditBefore + 1);
         });
