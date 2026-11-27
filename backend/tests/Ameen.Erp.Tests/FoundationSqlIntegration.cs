@@ -142,7 +142,7 @@ public static class FoundationSqlIntegration
         }
         Console.WriteLine("  SQL PASS COST01 concurrent reciprocal edits reject cycle atomically");
         var centerJournal = journalRequest with { Lines = journalRequest.Lines.Select(x => x with { CostCenterId = child.Id }).ToArray() };
-        await Call(s => s.Journal.CreateJournal(cid, clerk, Fixture.Key(), centerJournal, default));
+        var centerUsageJournal = await Call(s => s.Journal.CreateJournal(cid, clerk, Fixture.Key(), centerJournal, default));
         await Error("center_structure_in_use", () => Call(s => s.CostCenter.EditCostCenter(cid, child.Id, owner, Fixture.Key(), CostCenterTests.Edit(child) with { ParentId = null }, default)));
         // The linked journal line must prevent even a privileged direct delete.
         await using (var db = Context())
@@ -158,6 +158,16 @@ public static class FoundationSqlIntegration
         }
         var usage = await Call(s => s.CostCenter.GetCostCenterUsage(cid, root.ResourceId, owner, 0, 10, default));
         Ensure(usage.HasUsageInSubtree && usage.JournalCount == 0 && usage.ChildCenterCount == 1, "Center subtree usage differs");
+        var directUsage = await Call(s => s.CostCenter.GetCostCenterUsage(cid, child.Id, owner, 0, 1, default));
+        var emptyUsagePage = await Call(s => s.CostCenter.GetCostCenterUsage(cid, child.Id, owner, 1, 1, default));
+        Ensure(directUsage.JournalCount == 1 && directUsage.RecurringTemplateCount == 0 && directUsage.HasUsageInSubtree &&
+            directUsage.References.TotalCount == 1 && directUsage.References.Items.Single().ResourceId == centerUsageJournal.ResourceId &&
+            directUsage.References.Items.Single().BranchId == journalRequest.BranchId &&
+            emptyUsagePage.References.TotalCount == 1 && emptyUsagePage.References.Items.Count == 0,
+            "COST01 usage references or paging differ in SQL");
+        Ensure((await Call(s => s.CostCenter.GetCostCenter(cid, child.Id, owner, default))).Version == child.Version,
+            "COST01 usage read changed center");
+        Console.WriteLine("  SQL PASS COST01-OP05 direct usage, descendant distinction and page boundary");
         Console.WriteLine("  SQL PASS COST01 hierarchy, responsibility FK, concurrent replay, scoped search and subtree usage lock");
 
         var currencyFailureKey = Fixture.Key(); var centerFailureKey = Fixture.Key();
@@ -183,6 +193,7 @@ public static class FoundationSqlIntegration
 
         var otherId = Guid.NewGuid(); await Call(s => s.Company.CreateCompany(owner, Fixture.Key(), new(otherId, "FOUNDATION-OTHER", "أخرى", "YE", "SAR", 2, Fixture.Profile()), default));
         var otherCenter = await Call(s => s.CostCenter.CreateCostCenter(otherId, owner, Fixture.Key(), new("C", "آخر", null), default));
+        await Error("reference_not_found", () => Call(s => s.CostCenter.GetCostCenterUsage(otherId, child.Id, owner, 0, 10, default)));
         Guid otherMember;
         await using (var db = Context()) otherMember = (await db.Set<Membership>().SingleAsync(x => x.CompanyId == otherId)).Id;
         foreach (var column in new[] { "ParentId", "ResponsibleMembershipId" })

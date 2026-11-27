@@ -2395,6 +2395,44 @@ public static class HostedApiIntegration
                 }
                 Authenticate(Token("sql-owner"));
                 Console.WriteLine("  HOST PASS COST01-FG04/OP06 audit timestamps, numeric revision, stable pages and scoped JWT denial");
+                // Separate card and draft so the prior report and audit assertions stay independent.
+                var usageCenter = await Command(client, centersPath, new CreateCostCenterRequest("HTTP-USAGE", "مركز استخدام", journalRequest.BranchId));
+                Authenticate(Token("sql-clerk"));
+                var usageJournal = await Command(client, path, journalRequest with
+                {
+                    Lines = journalRequest.Lines.Select(x => x with { CostCenterId = usageCenter.ResourceId }).ToArray()
+                });
+                Authenticate(Token("sql-owner"));
+                var centerUsagePath = centersPath + $"/{usageCenter.ResourceId}/usage";
+                using (var response = await client.GetAsync(centerUsagePath + "?offset=0&limit=1"))
+                using (var data = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                {
+                    var result = data.RootElement;
+                    var refs = result.GetProperty("references");
+                    Ensure(response.StatusCode == HttpStatusCode.OK && result.GetProperty("costCenterId").GetGuid() == usageCenter.ResourceId &&
+                        result.GetProperty("journalCount").GetInt32() == 1 && result.GetProperty("hasUsageInSubtree").GetBoolean() &&
+                        refs.GetProperty("totalCount").GetInt32() == 1 &&
+                        refs.GetProperty("items")[0].GetProperty("resourceId").GetGuid() == usageJournal.ResourceId,
+                        "COST01 usage HTTP reference differs");
+                }
+                using (var response = await client.GetAsync(centerUsagePath + "?offset=1&limit=1"))
+                using (var data = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                    Ensure(response.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("references").GetProperty("items").GetArrayLength() == 0,
+                        "COST01 usage HTTP page boundary differs");
+                using (var response = await client.GetAsync(centerUsagePath + "?limit=201"))
+                    Ensure(response.StatusCode == HttpStatusCode.UnprocessableEntity, "COST01 usage invalid page accepted");
+                foreach (var usageSubject in new[] { "cost01-http-branch-auditor", "cost01-http-no-membership" })
+                {
+                    Authenticate(Token(usageSubject));
+                    using var deniedUsage = await client.GetAsync(centerUsagePath);
+                    Ensure(deniedUsage.StatusCode == HttpStatusCode.Forbidden, "COST01 usage leaked beyond global scope");
+                }
+                Authenticate(Token("sql-owner"));
+                using (var response = await client.GetAsync(centersPath + $"/{usageCenter.ResourceId}/audit-events"))
+                using (var data = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                    Ensure(response.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("totalCount").GetInt32() == 1,
+                        "COST01 usage read added card audit");
+                Console.WriteLine("  HOST PASS COST01-OP05 usage reference, page boundary, scope denial and read-only audit");
                 Console.WriteLine("  HOST PASS SYS04/COST01 create, PUT edit, search, status, usage and audit over production HTTPS/JWT/SQL");
                 Authenticate(Token("sql-clerk"));
                 Console.WriteLine("  HOST PASS GL01 create/detail/PUT edit/replay, explicit nature, usage and audit over production HTTPS/JWT/SQL");
