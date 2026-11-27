@@ -1,0 +1,16 @@
+report,parent_issue,linked_screen,linked_issue,direction,relationship
+RPT08,2130,INV15,1421,outgoing,original screen association; verify source contract before full acceptance
+RPT08,2130,GL10,865,outgoing,original screen association; verify source contract before full acceptance
+RPT08,2130,GL10,865,incoming,original reverse association; revalidate consumer or reconciliation
+RPT08,2130,RPT12,2197,incoming,original reverse association; revalidate consumer or reconciliation
+RPT09,2150,INV07,1289,outgoing,original screen association; verify source contract before full acceptance
+RPT09,2150,INV08,1307,outgoing,original screen association; verify source contract before full acceptance
+RPT10,2169,INV05,1252,outgoing,original screen association; verify source contract before full acceptance
+RPT10,2169,INV11,1359,outgoing,original screen association; verify source contract before full acceptance
+RPT10,2169,PUR04,1840,outgoing,original screen association; verify source contract before full acceptance
+RPT13,2211,SAL01,2239,outgoing,original screen association; verify source contract before full acceptance
+RPT13,2211,SAL11,2420,outgoing,original screen association; verify source contract before full acceptance
+RPT13,2211,RPT06,2102,outgoing,original screen association; verify source contract before full acceptance
+RPT14,2225,PUR01,1792,outgoing,original screen association; verify source contract before full acceptance
+RPT14,2225,PUR11,1965,outgoing,original screen association; verify source contract before full acceptance
+RPT14,2225,RPT07,2116,outgoing,original screen association; verify source contract before full acceptance
