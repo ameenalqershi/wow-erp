@@ -201,7 +201,10 @@ public static class SqlIntegration
             Console.WriteLine("  SQL PASS SYS02-AC01 independent branch operation and branch-scoped trial balance");
 
 
-            var center = await f.Call(s => s.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(), new("FILTER", "مركز اختبار التقارير", f.BranchId), default));
+            var analyticalParent = await f.Call(s => s.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(),
+                new("FILTER-PARENT", "أب تحليلي", null), default));
+            var center = await f.Call(s => s.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(),
+                new("FILTER", "مركز اختبار التقارير", f.BranchId, analyticalParent.ResourceId), default));
             var filteredRequest = f.Request(75) with { ExternalReference = "Ref-Case" };
             filteredRequest = filteredRequest with { Lines = filteredRequest.Lines.Select(x => x with { CostCenterId = center.ResourceId }).ToArray() };
             var filtered = await f.Call(s => s.Journal.CreateJournal(f.CompanyId, f.Clerk, Fixture.Key(), filteredRequest, default));
@@ -213,6 +216,18 @@ public static class SqlIntegration
             Ensure(filteredLedger.Entries.TotalCount == 1 && filteredLedger.ClosingBalance == 75, "SQL reference filter differs");
             var differentCase = await f.Call(s => s.Report.AccountLedger(f.CompanyId, f.CashId, f.Clerk, Fixture.Date, Fixture.Date, null, 0, 10, default, center.ResourceId, "ref-case"));
             Ensure(differentCase.Entries.TotalCount == 0, "SQL exact reference comparison is case insensitive");
+            var parentBalance = await f.Call(s => s.Report.TrialBalance(f.CompanyId, f.Clerk,
+                Fixture.Date, Fixture.Date, null, default, analyticalParent.ResourceId));
+            Ensure(parentBalance.TotalPeriodDebit == 0 && parentBalance.TotalPeriodCredit == 0,
+                "COST01 direct parent filter must not aggregate descendants");
+            var analyticalCard = await f.Call(s => s.CostCenter.GetCostCenter(f.CompanyId, center.ResourceId, f.Owner, default));
+            await f.Call(s => s.CostCenter.EditCostCenter(f.CompanyId, analyticalCard.Id, f.Owner, Fixture.Key(),
+                CostCenterTests.Edit(analyticalCard) with { Name = "مركز تحليلي محدث" }, default));
+            var unchanged = await f.Call(s => s.Report.TrialBalance(f.CompanyId, f.Clerk,
+                Fixture.Date, Fixture.Date, null, default, center.ResourceId, 1, false));
+            Ensure(unchanged.Rows.SequenceEqual(centerTrial.Rows) && unchanged.TotalPeriodDebit == 75 &&
+                unchanged.TotalPeriodCredit == 75, "COST01 metadata changed historical analytical amounts");
+            Console.WriteLine("  SQL PASS COST01-AC01 direct analytical hierarchy and historical amounts");
             Console.WriteLine("  SQL PASS report center, hierarchy and exact reference filters");
 
             var november = await f.Call(s => s.Journal.CreateJournal(f.CompanyId, f.Clerk, Fixture.Key(), f.Request(date: new(2026, 11, 1)), default));

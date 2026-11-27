@@ -145,6 +145,28 @@ public static class CostCenterTests
             c = await Get(f, r); Ensure(c.ParentId == two.ResourceId && c.Revision == 2);
             Ensure((await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, c.Id, f.Owner, 0, 10, default)).TotalCount == 2);
         });
+        test("COST01-AC01: analytical hierarchy preserves direct posted balances across metadata edits", async f =>
+        {
+            var parent = await Create(f, "ANALYTICAL-PARENT", null);
+            var child = await Create(f, "ANALYTICAL-CHILD", f.BranchId, parent.ResourceId);
+            var sibling = await Create(f, "ANALYTICAL-SIBLING", f.BranchId, parent.ResourceId);
+            await f.Post(await f.Draft(Request(f, child.ResourceId)));
+            await f.Post(await f.Draft(Request(f, sibling.ResourceId)));
+            async Task<TrialBalanceResult> Balance(Guid id) =>
+                await f.Service.Report.TrialBalance(f.CompanyId, f.Clerk, Fixture.Date, Fixture.Date, null, default, id);
+            var before = await Balance(child.ResourceId);
+            Ensure(before.TotalPeriodDebit == 100 && before.TotalPeriodCredit == 100);
+            Ensure((await Balance(parent.ResourceId)).TotalPeriodDebit == 0 &&
+                (await Balance(sibling.ResourceId)).TotalPeriodDebit == 100);
+            var card = await Get(f, child);
+            await f.Service.CostCenter.EditCostCenter(f.CompanyId, card.Id, f.Owner, Fixture.Key(),
+                Edit(card) with { Name = "مركز تحليلي محدث", Notes = "وصف فقط" }, default);
+            var after = await Balance(child.ResourceId);
+            Ensure(after.Rows.SequenceEqual(before.Rows) && after.TotalClosingDebit == before.TotalClosingDebit &&
+                after.TotalClosingCredit == before.TotalClosingCredit);
+            var updated = await Get(f, child);
+            Ensure(updated.Id == card.Id && updated.ParentId == parent.ResourceId && updated.BranchId == f.BranchId);
+        });
         test("COST01: inactive center blocks posting while reports preserve past movement", async f =>
         {
             var center = await Create(f, "C", f.BranchId); await f.Post(await f.Draft(Request(f, center.ResourceId)));
