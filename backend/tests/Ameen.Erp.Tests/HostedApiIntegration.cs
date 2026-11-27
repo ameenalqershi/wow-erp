@@ -1434,7 +1434,17 @@ public static class HostedApiIntegration
                     Ensure(rpt09Restored.StatusCode == HttpStatusCode.OK, "RPT09 valid historical source failed after fixture restore");
                 Console.WriteLine("  HOST PASS RPT09 CTRL01/AC02 source conversion conflict and restored valid report");
                 var rpt09PrintUrl = rpt09LedgerUrl.Replace("/ledger?", "/ledger/print?") + "&offset=1&limit=1";
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("rpt09-print-reader", new[] { Permissions.Read, Permissions.InventoryLedgerPrint },
+                        false, new[] { warehouseBranch.ResourceId }, null));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("rpt09-read-only", new[] { Permissions.Read },
+                        false, new[] { warehouseBranch.ResourceId }, null));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("rpt09-print-only", new[] { Permissions.InventoryLedgerPrint },
+                        false, new[] { warehouseBranch.ResourceId }, null));
                 var rpt09PrintBefore = await ReadOnlyCounts(connection, companyId);
+                Authenticate(Token("rpt09-print-reader"));
                 using (var rpt09Printed = await client.GetAsync(rpt09PrintUrl))
                 using (var rpt09Json = await client.GetAsync(rpt09LedgerUrl + "&offset=1&limit=1"))
                 {
@@ -1463,8 +1473,28 @@ public static class HostedApiIntegration
                 Authenticate(Token("audit-no-membership"));
                 using (var rpt09DeniedPrint = await client.GetAsync(rpt09PrintUrl))
                     Ensure(rpt09DeniedPrint.StatusCode == HttpStatusCode.Forbidden, "RPT09 print exposed another tenant");
+                foreach (var deniedActor in new[] { "rpt09-read-only", "rpt09-print-only" })
+                {
+                    Authenticate(Token(deniedActor));
+                    using var deniedPermission = await client.GetAsync(rpt09PrintUrl);
+                    Ensure(deniedPermission.StatusCode == HttpStatusCode.Forbidden, "RPT09 independent read/print permission bypassed");
+                }
                 Authenticate(Token("sql-owner"));
-                Ensure(rpt09PrintBefore == await ReadOnlyCounts(connection, companyId), "RPT09 print created command effects");
+                var rpt09PrintAfter = await ReadOnlyCounts(connection, companyId);
+                Ensure(rpt09PrintAfter == (rpt09PrintBefore.Journals, rpt09PrintBefore.Audits + 1, rpt09PrintBefore.Receipts, rpt09PrintBefore.Outbox),
+                    "RPT09 print must create exactly one audit and no financial command effects");
+                await using (var rpt09AuditDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                {
+                    var extraction = await rpt09AuditDb.Set<AuditEvent>().SingleAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt09.print" && x.ResourceId == openingItem.ResourceId);
+                    using var extractionDetails = JsonDocument.Parse(extraction.Details);
+                    Ensure(extraction.ActorId == "rpt09-print-reader" &&
+                        extractionDetails.RootElement.GetProperty("branchIds")[0].GetGuid() == warehouseBranch.ResourceId &&
+                        extractionDetails.RootElement.GetProperty("warehouseId").GetGuid() == openingWarehouse.ResourceId &&
+                        extractionDetails.RootElement.GetProperty("offset").GetInt32() == 1 &&
+                        extractionDetails.RootElement.GetProperty("totalCount").GetInt32() == 2,
+                        "RPT09 extraction audit metadata differs");
+                }
                 Console.WriteLine("  HOST PASS RPT09 OP04 protected printed page, full totals, historical units and tenant denial");
 
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
