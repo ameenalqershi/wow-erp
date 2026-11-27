@@ -299,6 +299,24 @@ public static class FoundationSqlIntegration
         Ensure((await Call(s => s.CostCenter.GetCostCenter(cid, searchLocal.ResourceId, owner, default))).Version == searchLocal.Version &&
             (await Call(s => s.CostCenter.ListCostCenterAudit(cid, searchLocal.ResourceId, owner, 0, 10, default))).TotalCount == 1,
             "COST01 search changed version or audit");
+        // All cards and memberships below are synthetic integration fixtures.
+        var secondSearchBranch = await Call(s => s.Branch.CreateBranch(cid, owner, Fixture.Key(),
+            new("FIND-BR", "فرع البحث", "مدينة", "عنوان"), default));
+        var scopedSearchActor = new Actor("cost-search-reader");
+        await Call(s => s.Membership.GrantMembership(cid, owner, Fixture.Key(),
+            new(scopedSearchActor.Subject, new[] { Permissions.Read }, false, new[] { secondSearchBranch.ResourceId }, null), default));
+        var scopedSearch = await Call(s => s.CostCenter.SearchCostCenters(cid, scopedSearchActor, "FIND-", null, null, null, 0, 10, default));
+        Ensure(scopedSearch.TotalCount == 1 && scopedSearch.Items.Single().Id == searchRoot.ResourceId,
+            "COST01 scoped search must return only the general center");
+        await Error("branch_access_denied", () => Call(s => s.CostCenter.SearchCostCenters(cid, scopedSearchActor, null, journalRequest.BranchId, null, null, 0, 10, default)));
+        await Error("branch_access_denied", () => Call(s => s.CostCenter.SearchCostCenters(cid, scopedSearchActor, null, null, searchLocal.ResourceId, null, 0, 10, default)));
+        await Call(s => s.CostCenter.CreateCostCenter(otherId, owner, Fixture.Key(),
+            new("FIND-01", "بحث تجريبي", null), default));
+        var tenantSearch = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "FIND-", null, null, null, 0, 10, default));
+        Ensure(tenantSearch.TotalCount == 3 && tenantSearch.Items.All(x => x.CompanyId == cid),
+            "COST01 search company partition differs");
+        await Error("permission_denied", () => Call(s => s.CostCenter.SearchCostCenters(otherId, scopedSearchActor, null, null, null, null, 0, 10, default)));
+        Console.WriteLine("  SQL PASS COST01-OP01 company and branch search authorization");
         Console.WriteLine("  SQL PASS COST01-OP01 Unicode search and filtered paging");
         Console.WriteLine("  SQL PASS COST01 tenant FKs and SYS04/COST01 status writes under runtime role");
     }
