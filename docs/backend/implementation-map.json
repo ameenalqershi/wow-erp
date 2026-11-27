@@ -2808,7 +2808,7 @@
           "binding": "Posted and Reversed originals only; no selection"
         }
       },
-      "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs"
+      "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerAcceptanceTests.cs"
     },
     "RPT02": {
       "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",

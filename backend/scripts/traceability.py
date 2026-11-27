@@ -539,8 +539,7 @@ screen("RPT09", "GET /companies/{companyId}/reports/items/{itemId}/ledger",
        {1: "CompanyId", 2: "BranchIds: authorized scope; optional branchId", 3: "query.from", 4: "query.to", 9: "route.itemId", 10: "query.warehouseId", 11: "query.identityNumber (exact normalized lot or serial number)"})
 for report in ["RPT01", "RPT02"]:
     names = ["Program.cs", "ReportBranchSelectionTests.cs", "HttpIntegration.cs", "OpenApiSnapshotTests.cs", "HostedApiIntegration.cs"]
-    if report == "RPT02":
-        names.append("AccountLedgerAcceptanceTests.cs")
+    names.append("AccountLedgerAcceptanceTests.cs")
     MAP[report]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in names)
 for report in ["RPT08", "RPT09"]:
     MAP[report]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in ["InventoryReportTests.cs", "InventoryOpeningSqlIntegration.cs", "HostedApiIntegration.cs"])
