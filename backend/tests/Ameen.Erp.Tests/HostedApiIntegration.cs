@@ -2499,7 +2499,7 @@ public static class HostedApiIntegration
 
 
                 var centersPath = $"/api/v1/companies/{companyId}/cost-centers";
-                var centerIdentityRequest = new CreateCostCenterRequest("00042", "مركز المبيعات", null);
+                var centerIdentityRequest = new CreateCostCenterRequest("00043", "مركز المبيعات", null);
                 var centerIdentityKey = Fixture.Key();
                 var centerIdentityReceipt = await Command(client, centersPath, centerIdentityRequest, centerIdentityKey);
                 Ensure(await Command(client, centersPath, centerIdentityRequest, centerIdentityKey) == centerIdentityReceipt,
@@ -2511,7 +2511,7 @@ public static class HostedApiIntegration
                     Ensure(identityDetail.StatusCode == HttpStatusCode.OK &&
                         identityCard.GetProperty("id").GetGuid() == centerIdentityReceipt.ResourceId &&
                         identityCard.GetProperty("companyId").GetGuid() == companyId &&
-                        identityCard.GetProperty("code").GetString() == "00042" &&
+                        identityCard.GetProperty("code").GetString() == "00043" &&
                         identityCard.GetProperty("name").GetString() == "مركز المبيعات",
                         "COST01 identity HTTP roundtrip differs");
                 }
