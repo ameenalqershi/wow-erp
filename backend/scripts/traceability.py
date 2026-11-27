@@ -26,11 +26,15 @@ def screen(code, api, implemented, remaining, fields, audit=()):
 
 screen("SYS01", "GET/POST /companies; GET/PUT /companies/{companyId}; POST /status; GET /usage|profile-audit-events",
        "بطاقة قانونية وعنوانية وإصدار عددي؛ تحرير وحالة واستخدام وتدقيق؛ قفل العملة بعد الأثر وربط بداية أول سنة؛ منع كتابة الشركة المعطلة أو ناقصة البيانات",
-       "ملفات الدولة وشروط إلزام التسجيل الضريبي والتجاري والعنوان الوطني حسب الاختصاص؛ مرجع دول معتمد بدل تحقق شكل الرمز؛ مشروع تحويل العملة الوظيفية التاريخي",
+       "ملفات الدولة وشروط إلزام التسجيل الضريبي والتجاري والعنوان الوطني حسب الاختصاص؛ بطاقة دولة قابلة للإدارة/التعطيل ونطاقها التشغيلي؛ مشروع تحويل العملة الوظيفية التاريخي",
        {1: "Company.Id / CreateCompanyRequest.Id", 2: "route.companyId", 3: "Code", 4: "Name", 5: "EnglishName", 6: "IsActive", 7: "Notes", 8: "LegalName", 9: "CountryCode", 10: "Jurisdiction", 11: "FunctionalCurrency", 12: "CommercialRegistration", 13: "TaxRegistration", 14: "FiscalYearStartsOn", 17: "Revision", 19: "City", 20: "District", 21: "Street", 22: "BuildingNumber", 23: "PostalCode", 24: "AdditionalNumber"},
        [(15, "AuditEvent.ActorId: company.created"), (16, "AuditEvent.OccurredAt: company.created"), (18, "AuditEvent.OccurredAt: company.edited / company.status-changed")])
 MAP["SYS01"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in
     ["CompanyTests.cs", "CompanySqlIntegration.cs", "SchemaUpgradeIntegration.cs", "HostedApiIntegration.cs"])
+MAP["SYS01"]["fields"]["SYS01-F09"]["binding"] = (
+    "Company.CountryCode validated against the 249 officially assigned ISO 3166-1 alpha-2 reference codes "
+    "by Iso3166CountryCatalog; no country names, jurisdiction tax policy or editable per-company country cards"
+)
 screen("SYS02", "GET/POST /companies/{companyId}/branches; GET /search; GET/PUT /{id}; POST /{id}/status; GET /{id}/usage|audit-events",
        "بطاقة فرع وعنوان وشجرة بلا دورات؛ بحث ضمن الصلاحية دون توريث الفروع؛ قفل بنية المستخدم؛ مركز افتراضي متسق؛ تعديل وحالة واستخدام وتدقيق",
        "نوع الموقع وقيمه ومرجع المدير بانتظار حسم التحليل؛ المركز الافتراضي إعداد لا يملأ سطور القيود تلقائيًا؛ الشركات القديمة تستكمل عناوين فروعها قبل التشغيل",
@@ -49,6 +53,14 @@ MAP["SYS03"]["fields"]["SYS03-F14"] = dict(status="partial",
     binding="FiscalYear.LastModifiedAt at creation; period.closed/reopened in AuditEvent; calendar edit timestamps pending")
 MAP["SYS03"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in
     ["FiscalCalendarTests.cs", "FiscalCalendarSqlIntegration.cs", "FiscalYearAuditSqlIntegration.cs", "HostedApiIntegration.cs"])
+for field, binding in {
+    5: "FiscalYear.StartsOn: nondefault required start date in domain and service",
+    6: "FiscalYear.EndsOn: nondefault required end date with chronological/year-length guard",
+    8: "FiscalPeriod.StartsOn: nondefault required date, validated before coverage",
+    9: "FiscalPeriod.EndsOn: nondefault required date, validated before coverage",
+}.items():
+    MAP["SYS03"]["fields"][f"SYS03-F{field:02}"]["binding"] = binding
+
 screen("SYS04", "GET/POST /companies/{companyId}/currencies; GET /search; GET/PUT /{id}; POST /{id}/status; GET /{id}/usage|audit-events",
        "بطاقة عملة بأسماء ورمز عرض واسم جزء وإصدار عددي؛ تحرير وحالة وبحث وتدقيق؛ قفل الدقة بعد الاستخدام وفحص التعطيل عند الترحيل",
        "الرمز الداخلي موحد مع رمز العملة ولا يربط بقائمة ISO خارجية وغير قابل لإعادة التسمية؛ أسماء العملة الوظيفية والبطاقات القديمة تبدأ برمز ISO وتحتاج تحريرًا؛ تحويل الدقة التاريخية غير متاح",
@@ -89,7 +101,10 @@ for n, binding in {
     6:"SecurityRoleRule.ScreenCode: internal model only", 7:"SecurityRoleRule.OperationCode: internal model only", 8:"SecurityRoleRule.Allowed: no runtime enforcement",
     9:"SecurityRoleRule.AmountLimit: decimal(20,6), no runtime enforcement",
     10:"SecurityRoleRule.CurrencyId: tenant FK, no runtime enforcement",
-    14:"SecurityRole.LastModifiedAt: internal server timestamp only"
+    11:"SecurityRole.CreatedBy: bounded creator, validated in hydrated snapshots; operational audit pending",
+    12:"SecurityRole.CreatedAt: nondefault time, validated before role construction and grant evaluation",
+    13:"SecurityRole.Revision: positive in hydrated snapshots, domain change guards; SQL/API pending",
+    14:"SecurityRole.LastModifiedAt: chronology validated in every role snapshot, operational API pending"
 }.items():
     MAP["SYS07"]["fields"][f"SYS07-F{n:02}"] = dict(status="partial", binding=binding)
 MAP["SYS07"]["test_file"] = "backend/tests/Ameen.Erp.Tests/SecurityRoleFoundationTests.cs; backend/tests/Ameen.Erp.Tests/SecurityRoleSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SecurityRoleAssignmentSqlIntegration.cs"
@@ -288,6 +303,79 @@ screen("CASH01", "GET/POST /companies/{companyId}/cash-boxes; GET /search|/{id}|
 MAP["CASH01"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in
     ["CashBoxTests.cs", "CashBoxSqlIntegration.cs", "SqlIntegration.cs", "OpenApiSnapshotTests.cs"])
 
+# SYS11/SYS12/SYS13/SYS15 are guarded structural foundations, not runtime services.
+# Their source fields must be traceable even while operation catalogues are unapproved.
+_source_only = {
+    "SYS11": (
+        "GeneralOptionsPolicy; GeneralOptionsAccountLine",
+        "الخيارات العامة والربط المحاسبي: بطاقات وسطور مرجعية محمية في SQL/EF بنطاق الشركة؛ لا تفعيل للربط أو الترحيل",
+        "قوائم النوع والحدث ودور الحساب والنطاق وصلاحيات التحرير والموافقة لم تعتمد؛ API وHTTP/JWT التشغيلي غير منفذين",
+        {
+            1:"GeneralOptionsPolicy.CompanyId tenant key", 2:"GeneralOptionsPolicy.BranchId nullable tenant FK",
+            3:"GeneralOptionsPolicy.StatusCode opaque", 4:"GeneralOptionsPolicy.InventoryValuationCode opaque",
+            5:"GeneralOptionsPolicy.BlockNegativeStock stored, not enforced", 6:"GeneralOptionsPolicy.SalesDeliveryModeCode opaque",
+            7:"GeneralOptionsPolicy.QuantityPrecision nonnegative", 8:"GeneralOptionsAccountLine.EventCode opaque",
+            9:"GeneralOptionsAccountLine.AccountRoleCode opaque", 10:"GeneralOptionsAccountLine.AccountId tenant FK",
+            11:"GeneralOptionsAccountLine.Scope opaque", 12:"GeneralOptionsPolicy.CreatedBy internal",
+            13:"GeneralOptionsPolicy.CreatedAt rejects default creation time; no API",
+            14:"GeneralOptionsPolicy.Revision positive int, no API",
+            15:"GeneralOptionsPolicy.LastModifiedAt internal, no API"
+        }, ["GeneralOptionsFoundationTests.cs","GeneralOptionsSqlIntegration.cs"]),
+    "SYS12": (
+        "PrintTemplate",
+        "قالب طباعة بنيوي محمي في SQL/EF بنطاق الشركة دون اعتماد قوالب بلد أو طباعة فعلية",
+        "قائمة الوثائق واللغات ومقاسات الورق والحقول الإلزامية والوسم والواجهات والتفويض غير معتمدة",
+        {
+            1:"PrintTemplate.CompanyId tenant key", 2:"PrintTemplate.BranchId nullable tenant FK",
+            3:"PrintTemplate.StatusCode opaque", 4:"PrintTemplate.DocumentTypeCode opaque",
+            5:"PrintTemplate.LanguageCode opaque", 6:"PrintTemplate.PaperSizeCode opaque",
+            7:"PrintTemplate.Name Unicode", 8:"PrintTemplate.VersionCode source string",
+            9:"PrintTemplate.IsDraft stored only, no watermark renderer",
+            10:"PrintTemplate.CreatedBy internal", 11:"PrintTemplate.CreatedAt rejects default creation time; no API",
+            12:"PrintTemplate.Revision positive int, no API",
+            13:"PrintTemplate.LastModifiedAt internal, no API"
+        }, ["PrintTemplateFoundationTests.cs","PrintTemplateSqlIntegration.cs"]),
+    "SYS13": (
+        "DataImportBatch; DataImportFieldMapping",
+        "دفعة استيراد وحقول ربط بنيوية محمية في SQL/EF؛ لم ينفذ استيراد أو معاينة أو قيد",
+        "قائمة أنواع البيانات وسياسة التكرار والمطابقة ومعاينة الأخطاء والاعتماد والتنفيذ والتكامل غير معتمدة",
+        {
+            1:"DataImportBatch.CompanyId tenant key", 2:"DataImportBatch.BranchId nullable tenant FK",
+            3:"DataImportBatch.StatusCode opaque", 4:"DataImportBatch.DataKindCode opaque",
+            5:"DataImportBatch.FileIdentifier stored, no file IO", 6:"DataImportBatch.CutoffDate DateOnly",
+            7:"DataImportBatch.DuplicatePolicyCode opaque", 8:"DataImportFieldMapping.SourceColumn",
+            9:"DataImportFieldMapping.TargetField", 10:"DataImportFieldMapping.DefaultValue nullable",
+            11:"DataImportBatch.CreatedBy internal",
+            12:"DataImportBatch.CreatedAt rejects default creation time; no API",
+            13:"DataImportBatch.Revision positive int, no API",
+            14:"DataImportBatch.LastModifiedAt internal, no API"
+        }, ["DataImportFoundationTests.cs","DataImportSqlIntegration.cs"]),
+    "SYS15": (
+        "BackupJobConfiguration",
+        "بطاقة تهيئة نسخة محمية بنطاق الشركة؛ لا نسخ أو استعادة أو جدولة تشغيلية",
+        "تفويض الاستعادة والتشفير والجدولة والاحتفاظ واختبار استعادة معزول غير معتمدة؛ API غير منفذ",
+        {
+            1:"BackupJobConfiguration.CompanyId tenant key", 2:"BackupJobConfiguration.BranchId nullable tenant FK",
+            3:"BackupJobConfiguration.StatusCode opaque", 4:"BackupJobConfiguration.Name Unicode",
+            5:"BackupJobConfiguration.ScheduleText stored, never scheduled",
+            6:"BackupJobConfiguration.Destination stored, never accessed",
+            7:"BackupJobConfiguration.RetentionPolicy nonnegative, unit unapproved",
+            8:"BackupJobConfiguration.IsEncrypted stored, no cryptography worker",
+            9:"BackupJobConfiguration.LastTestReference nullable, no real restore",
+            10:"BackupJobConfiguration.CreatedBy internal",
+            11:"BackupJobConfiguration.CreatedAt rejects default creation time; no API",
+            12:"BackupJobConfiguration.Revision positive int, no API",
+            13:"BackupJobConfiguration.LastModifiedAt internal, no API"
+        }, ["BackupConfigurationFoundationTests.cs","BackupConfigurationSqlIntegration.cs"]),
+}
+for _id, (_entities, _built, _remaining, _fields, _tests) in _source_only.items():
+    screen(_id, "internal domain/EF/SQL schema only; no public operation API",
+           _built, _remaining, {})
+    for _field, _binding in _fields.items():
+        MAP[_id]["fields"][f"{_id}-F{_field:02}"] = dict(
+            status="partial", binding=f"{_binding}; structural foundation only")
+    MAP[_id]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + t for t in _tests)
+
 screen("SYS16", "internal EF/SQL schema 033 only; public SYS16 payment API not enabled",
        "بنية أصلية لبطاقات طرق الدفع وخطط الأقساط: الشركة والفرع والرمز والاسم والوسيلة والحساب الاختياري وأيام السماح والنسب والاستحقاق والتدقيق؛ هجرة ذرية idempotent ومراجع SQL مركبة بالشركة؛ مجموع نسب خطة معطاة يساوي 100 في Domain، ورفض EF لأي كتابة غير معتمدة",
        "كتابة وقراءة SYS16 عبر API والبحث والتعديل والتعطيل والاستخدام وسجل التدقيق؛ اعتماد قائمة أنواع الوسائل التفصيلية وشروط إلزام الحساب، صلاحيات الفرع والحساب، ربط SAL06/PUR07/POS03 ومنع ترحيل البطاقة نقدًا؛ لا تعتبر البيانات schema-only وسيلة دفع تشغيلية",
@@ -304,7 +392,7 @@ for n, binding in {
     9: "PaymentTermLine.Percent: decimal(9,6); domain sum exactly 100 if present; EF writes blocked",
     10: "PaymentTermLine.DaysFromBase: nonnegative int",
     11: "PaymentTerm.CreatedBy: internal server-owned actor, no API yet",
-    12: "PaymentTerm.CreatedAt: internal datetimeoffset, no API yet",
+    12: "PaymentTerm.CreatedAt: internal datetimeoffset; new card rejects default audit time; no API yet",
     13: "PaymentTerm.Revision: positive int, no API yet",
     14: "PaymentTerm.LastModifiedAt: internal datetimeoffset, no API yet"
 }.items():
