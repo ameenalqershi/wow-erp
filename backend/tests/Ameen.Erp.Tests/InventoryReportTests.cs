@@ -176,6 +176,45 @@ public static class InventoryReportTests
             Ensure(counts == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
         });
+        test("RPT09 OP02/AC01: mixed document units, same-day reversal and full-range totals", async f =>
+        {
+            var (request, _) = await InventoryOpeningPostingTests.Setup(f);
+            var itemId = request.Lines[0].ItemId;
+            var item = f.Store.All<Item>().Single(x => x.Id == itemId);
+            var box = item.Units.Single(x => x.FactorToBase == 12);
+            var combined = await InventoryOpeningTests.Create(f, request with
+            {
+                CountReference = "RPT09-MIXED",
+                Lines = new[] { request.Lines[0] with { Quantity = 3, UnitCost = 2.5m },
+                    request.Lines[0] with { UnitId = box.UnitId, Quantity = 2, UnitCost = 30m } }
+            });
+            combined = await InventoryOpeningTests.Action(f, combined, "submit");
+            combined = await InventoryOpeningTests.Action(f, combined, "approve", new Actor("stock-reviewer"));
+            combined = await InventoryOpeningPostingTests.Post(f, combined, await InventoryOpeningPostingTests.Plan(f, combined));
+            var initial = await Ledger(f, itemId);
+            var first = initial.Rows.Items.Single();
+            Ensure(initial.BaseUnitId == item.BaseUnitId && initial.OpeningQuantity == 0 && initial.InQuantity == 27 &&
+                initial.ClosingQuantity == 27 && initial.InValue == 67.5m && initial.ClosingValue == 67.5m &&
+                first.OpeningId == combined.ResourceId && first.InQuantity == 27 && first.RunningQuantity == 27 &&
+                first.DocumentUnits.Length == 2 && first.DocumentUnits.Sum(x => x.Quantity * x.FactorToBase) == 27 &&
+                first.DocumentUnits.Sum(x => x.Value) == 67.5m && first.DocumentUnits[0].UnitCost == 2.5m &&
+                first.DocumentUnits[1].UnitId == box.UnitId && first.DocumentUnits[1].FactorToBase == 12 &&
+                first.DocumentUnits[1].Quantity == 2 && first.DocumentUnits[1].UnitCost == 30m);
+            await Reverse(f, combined, Fixture.Date);
+            var page0 = await Ledger(f, itemId);
+            var page1 = await Ledger(f, itemId, offset: 1);
+            var empty = await Ledger(f, itemId, offset: 2);
+            foreach (var result in new[] { page0, page1, empty })
+                Ensure(result.InventoryOpeningsOnly && result.Rows.TotalCount == 2 && result.InQuantity == 27 &&
+                    result.OutQuantity == 27 && result.InValue == 67.5m && result.OutValue == 67.5m &&
+                    result.ClosingQuantity == 0 && result.ClosingValue == 0);
+            Ensure(page0.Rows.Items.Single().MovementId == first.MovementId && page0.Rows.Items.Single().RunningValue == 67.5m);
+            var reversal = page1.Rows.Items.Single();
+            Ensure(reversal.ReversesMovementId == first.MovementId && reversal.RunningQuantity == 0 && reversal.RunningValue == 0 &&
+                reversal.DocumentUnits.Length == 2 && reversal.DocumentUnits.Sum(x => x.Quantity * x.FactorToBase) == -27 &&
+                reversal.DocumentUnits.Sum(x => x.Value) == -67.5m && reversal.DocumentUnits[1].UnitCost == 30m &&
+                empty.Rows.Items.Count == 0);
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));

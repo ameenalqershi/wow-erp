@@ -1110,9 +1110,10 @@ public static class HostedApiIntegration
                 Authenticate(Token("sql-owner"));
                 Console.WriteLine("  HOST PASS INV05 lot create/edit/search/detail/status/audit and route isolation over HTTPS/JWT/SQL");
                 var openingWarehouse = await Command(client, warehousesPath, whRequest with { Code = "HTTP-OPEN-WH", Type = WarehouseType.Standard, TrackLocations = false, Locations = Array.Empty<WarehouseLocationRequest>() });
-                var openingItem = await Command(client, itemsPath, new CreateItemRequest("HTTP-OPEN-I", "صنف افتتاح", ItemType.Goods, ItemTracking.None, identityGroup.ResourceId, itemUnit.ResourceId, new[] { new ItemUnitRequest(itemUnit.ResourceId, 1, null, null) }));
+                var rpt09Box = await Command(client, unitsPath, new CreateUnitRequest("HTTP-RPT09-BOX", "علبة", "BOX", 0, "علبة"));
+                var openingItem = await Command(client, itemsPath, new CreateItemRequest("HTTP-OPEN-I", "صنف افتتاح", ItemType.Goods, ItemTracking.None, identityGroup.ResourceId, itemUnit.ResourceId, new[] { new ItemUnitRequest(itemUnit.ResourceId, 1, null, null), new ItemUnitRequest(rpt09Box.ResourceId, 2, null, null) }));
                 var openingsPath = $"/api/v1/companies/{companyId}/inventory-openings";
-                var openingRequest = new CreateInventoryOpeningRequest(warehouseBranch.ResourceId, openingWarehouse.ResourceId, Fixture.Date, Fixture.Date, Fixture.Date, "SAR", 1, "HTTP-COUNT", "افتتاح", new[] { new InventoryOpeningLineRequest(openingItem.ResourceId, itemUnit.ResourceId, 2, 7.5m) });
+                var openingRequest = new CreateInventoryOpeningRequest(warehouseBranch.ResourceId, openingWarehouse.ResourceId, Fixture.Date, Fixture.Date, Fixture.Date, "SAR", 1, "HTTP-COUNT", "افتتاح", new[] { new InventoryOpeningLineRequest(openingItem.ResourceId, rpt09Box.ResourceId, 1, 15m) });
                 Authenticate(Token("sql-clerk"));
                 var opening = await Command(client, openingsPath, openingRequest);
                 using (var response = await client.GetAsync(openingsPath + $"/{opening.ResourceId}/valuation-preview"))
@@ -1286,6 +1287,24 @@ public static class HostedApiIntegration
                     sourceResponse.EnsureSuccessStatusCode();
                     var sourceRows = ledgerJson.RootElement.GetProperty("rows").GetProperty("items").EnumerateArray().ToArray();
                     Ensure(sourceRows.Length == 2, "RPT09 expected original and reversal source rows");
+                    decimal Rpt09Amount(JsonElement obj, string field) => decimal.Parse(obj.GetProperty(field).GetString()!, System.Globalization.CultureInfo.InvariantCulture);
+                    Ensure(ledgerJson.RootElement.GetProperty("baseUnitId").GetGuid() == itemUnit.ResourceId &&
+                        Rpt09Amount(ledgerJson.RootElement, "inQuantity") == 2 && Rpt09Amount(ledgerJson.RootElement, "outQuantity") == 2 &&
+                        Rpt09Amount(ledgerJson.RootElement, "inValue") == 15 && Rpt09Amount(ledgerJson.RootElement, "outValue") == 15 &&
+                        Rpt09Amount(ledgerJson.RootElement, "closingQuantity") == 0 && Rpt09Amount(ledgerJson.RootElement, "closingValue") == 0,
+                        "RPT09 full-range totals must use base quantities and historical values");
+                    for (var rpt09Index = 0; rpt09Index < sourceRows.Length; rpt09Index++)
+                    {
+                        var rpt09Row = sourceRows[rpt09Index];
+                        var rpt09Unit = rpt09Row.GetProperty("documentUnits")[0];
+                        var rpt09Sign = rpt09Index == 0 ? 1 : -1;
+                        Ensure(rpt09Unit.GetProperty("unitId").GetGuid() == rpt09Box.ResourceId &&
+                            Rpt09Amount(rpt09Unit, "factorToBase") == 2 && Rpt09Amount(rpt09Unit, "unitCost") == 15 &&
+                            Rpt09Amount(rpt09Unit, "quantity") == rpt09Sign && Rpt09Amount(rpt09Unit, "value") == 15 * rpt09Sign &&
+                            Rpt09Amount(rpt09Row, "runningQuantity") == (rpt09Index == 0 ? 2 : 0) &&
+                            Rpt09Amount(rpt09Row, "runningValue") == (rpt09Index == 0 ? 15 : 0),
+                            "RPT09 document unit, sign, historical cost or running balance differs");
+                    }
                     foreach (var movement in sourceRows)
                     {
                         var sourceId = movement.GetProperty("openingId").GetGuid();
