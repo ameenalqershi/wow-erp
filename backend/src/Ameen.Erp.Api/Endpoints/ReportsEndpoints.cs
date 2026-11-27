@@ -11,12 +11,12 @@ internal static class ReportsEndpoints
     {
         const string p = EndpointRoutes.Company;
         app.MapGet(p + "/reports/inventory-balances", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, Guid? groupId, Guid? itemId, bool? showZero, int? offset, int? limit,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? warehouseId, [FromQuery] Guid? groupId, [FromQuery] Guid? itemId, [FromQuery] bool? showZero, [FromQuery] int? offset, [FromQuery] int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.InventoryBalances(companyId, Actor(h), Date(from), Date(to), branchId, warehouseId, groupId, itemId, showZero ?? true, offset ?? 0, limit ?? 50, ct, branchIds)))
-            .Produces<InventoryBalanceResult>().RequireAuthorization().WithTags("RPT08 Inventory balances");
+            .Produces<InventoryBalanceResult>().RequireAuthorization().WithStrictReportQuery().WithTags("RPT08 Inventory balances");
         app.MapGet(p + "/reports/inventory-balances/print", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, Guid? groupId, Guid? itemId, bool? showZero, int? offset, int? limit,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? warehouseId, [FromQuery] Guid? groupId, [FromQuery] Guid? itemId, [FromQuery] bool? showZero, [FromQuery] int? offset, [FromQuery] int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>
         {
             var document = await s.InventoryBalancePrint(companyId, Actor(h), Date(from), Date(to), branchId,
@@ -26,14 +26,14 @@ internal static class ReportsEndpoints
             h.Response.Headers["X-Frame-Options"] = "DENY";
             h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
             return Results.Content(InventoryBalancePrintHtml.Render(document), "text/html; charset=utf-8");
-        }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithTags("RPT08 Inventory balances");
+        }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithStrictReportQuery().WithTags("RPT08 Inventory balances");
         app.MapGet(p + "/reports/items/{itemId:guid}/ledger", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? warehouseId, [FromQuery] string? identityNumber, [FromQuery] int? offset, [FromQuery] int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.InventoryLedger(companyId, itemId, Actor(h), Date(from), Date(to), branchId, warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct, branchIds)))
-            .Produces<InventoryLedgerResult>().RequireAuthorization().WithTags("RPT09 Item movement ledger");
+            .Produces<InventoryLedgerResult>().RequireAuthorization().WithStrictReportQuery().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/items/{itemId:guid}/ledger/export", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? warehouseId, [FromQuery] string? identityNumber,
             ReportService s, HttpContext h, CancellationToken ct) =>
         {
             var bytes = await s.InventoryLedgerExport(companyId, itemId, Actor(h), Date(from), Date(to),
@@ -42,9 +42,9 @@ internal static class ReportsEndpoints
             h.Response.Headers["X-Content-Type-Options"] = "nosniff";
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "item-ledger.xlsx");
         }).Produces(StatusCodes.Status200OK, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-          .RequireAuthorization().WithTags("RPT09 Item movement ledger");
+          .RequireAuthorization().WithStrictReportQuery().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/items/{itemId:guid}/ledger/print", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? warehouseId, [FromQuery] string? identityNumber, [FromQuery] int? offset, [FromQuery] int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>
         {
             var document = await s.InventoryLedgerPrint(companyId, itemId, Actor(h), Date(from), Date(to), branchId,
@@ -54,7 +54,7 @@ internal static class ReportsEndpoints
             h.Response.Headers["X-Frame-Options"] = "DENY";
             h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
             return Results.Content(InventoryLedgerPrintHtml.Render(document), "text/html; charset=utf-8");
-        }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithTags("RPT09 Item movement ledger");
+        }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithStrictReportQuery().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/trial-balance", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
             [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? costCenterId, [FromQuery] int? accountLevel, [FromQuery] bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))

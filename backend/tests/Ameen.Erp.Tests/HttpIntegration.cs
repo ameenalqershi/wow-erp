@@ -146,7 +146,9 @@ public static class HttpIntegration
             var strictRoutes = new[] { "trial-balance", "trial-balance/print", "trial-balance/export",
                 $"trial-balance/{f.CashId}/drilldown", $"accounts/{f.CashId}/ledger",
                 $"accounts/{f.CashId}/ledger/print",
-                $"accounts/ledger-range?fromAccountId={f.CashId}&toAccountId={f.CashId}" };
+                $"accounts/ledger-range?fromAccountId={f.CashId}&toAccountId={f.CashId}",
+                "inventory-balances", "inventory-balances/print", $"items/{Guid.Empty}/ledger",
+                $"items/{Guid.Empty}/ledger/print", $"items/{Guid.Empty}/ledger/export" };
             var strictAuditCount = f.Store.Count<AuditEvent>();
             foreach (var route in strictRoutes)
             {

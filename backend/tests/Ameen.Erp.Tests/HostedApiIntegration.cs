@@ -1726,6 +1726,33 @@ public static class HostedApiIntegration
                     Ensure(await rpt08Db.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId && x.Action == "report.rpt08.print" &&
                         x.ActorId == "rpt08-print-reader" && x.ResourceId == companyId) == 1, "RPT08 extraction audit missing");
                 Console.WriteLine("  HOST PASS RPT08 OP04 protected preview and exact filtered values over HTTPS/JWT/SQL");
+                var inventoryStrictBefore = await ReadOnlyCounts(connection, companyId);
+                foreach (var (route, subject) in new[] {
+                    (rpt08BalanceUrl, "rpt08-print-reader"), (rpt08PrintUrl, "rpt08-print-reader"),
+                    (rpt09LedgerUrl, "rpt09-print-reader"), (rpt09PrintUrl, "rpt09-print-reader"),
+                    (rpt09ExportUrl, "rpt09-export-reader") })
+                {
+                    Authenticate(Token(subject));
+                    foreach (var filter in new[] { "displayCurrency=USD", "documentState=Draft", "detailLevel=Summary",
+                        "asOf=2026-03-01", "includeTransitAndQuarantine=true", "companyId=" + companyId })
+                    {
+                        using var unsupportedInventory = await client.GetAsync(route + "&" + filter);
+                        using var problem = JsonDocument.Parse(await unsupportedInventory.Content.ReadAsStringAsync());
+                        Ensure(unsupportedInventory.StatusCode == HttpStatusCode.UnprocessableEntity &&
+                            problem.RootElement.GetProperty("code").GetString() == "unsupported_report_filter",
+                            "Inventory report ignored unsupported filter: " + filter);
+                    }
+                    using var duplicateInventory = await client.GetAsync(route + "&FROM=2025-01-01");
+                    using var duplicateProblem = JsonDocument.Parse(await duplicateInventory.Content.ReadAsStringAsync());
+                    Ensure(duplicateInventory.StatusCode == HttpStatusCode.UnprocessableEntity &&
+                        duplicateProblem.RootElement.GetProperty("code").GetString() == "ambiguous_report_filter",
+                        "Inventory report accepted duplicate date");
+                }
+                Authenticate(Token("sql-owner"));
+                Ensure(inventoryStrictBefore == await ReadOnlyCounts(connection, companyId),
+                    "Rejected inventory filters produced extraction or accounting effects");
+                Console.WriteLine("  HOST PASS RPT08/09 five inventory routes reject unsupported and duplicate filters before extraction");
+
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
 

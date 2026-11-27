@@ -93,7 +93,8 @@ public static class OpenApiSnapshotTests
                 throw new Exception("RPT09 export must expose authenticated binary XLSX");
             foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/export",
                 "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger",
-                "accounts/{accountId}/ledger/print", "accounts/ledger-range" })
+                "accounts/{accountId}/ledger/print", "accounts/ledger-range", "inventory-balances", "inventory-balances/print",
+                "items/{itemId}/ledger", "items/{itemId}/ledger/print", "items/{itemId}/ledger/export" })
             {
                 var operation = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/" + report).GetProperty("get");
                 if (!operation.GetProperty("responses").TryGetProperty("422", out var strictResponse) ||
