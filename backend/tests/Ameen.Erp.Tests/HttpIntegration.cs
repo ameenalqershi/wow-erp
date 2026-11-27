@@ -138,6 +138,32 @@ public static class HttpIntegration
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", f.Approver.Subject);
             }
 
+            // All current financial report routes reject filters they cannot apply.
+            // A typo or an unsupported option must not silently change the report.
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", f.Owner.Subject);
+            var strictBase = $"/api/v1/companies/{f.CompanyId}/reports/";
+            var strictPeriod = "from=2026-01-01&to=2026-12-31";
+            var strictRoutes = new[] { "trial-balance", "trial-balance/print", "trial-balance/export",
+                $"trial-balance/{f.CashId}/drilldown", $"accounts/{f.CashId}/ledger",
+                $"accounts/{f.CashId}/ledger/print",
+                $"accounts/ledger-range?fromAccountId={f.CashId}&toAccountId={f.CashId}" };
+            var strictAuditCount = f.Store.Count<AuditEvent>();
+            foreach (var route in strictRoutes)
+            {
+                var url = strictBase + route + (route.Contains('?') ? "&" : "?") + strictPeriod;
+                foreach (var filter in new[] { "displayCurrency=USD", "documentState=Draft", "detailLevel=Summary", "companyId=" + f.CompanyId })
+                {
+                    using var unsupported = await client.GetAsync(url + "&" + filter);
+                    await Problem(unsupported, 422, "unsupported_report_filter");
+                }
+                using var duplicate = await client.GetAsync(url + "&FROM=2025-01-01");
+                await Problem(duplicate, 422, "ambiguous_report_filter");
+            }
+            using (var unsupportedPrintPaging = await client.GetAsync(ledgerPrintPath + "&limit=1"))
+                await Problem(unsupportedPrintPaging, 422, "unsupported_report_filter");
+            Ensure(f.Store.Count<AuditEvent>() == strictAuditCount, "Rejected report filters produced extraction audit");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", f.Approver.Subject);
+
             await f.Post(await f.Draft(f.Request() with { AutomaticReversal = true, ReversalDate = Fixture.Date }));
             client.DefaultRequestHeaders.Authorization = null;
             using (var anonymousRun = await Send(client, path + "/reversals/run-due", new RunDueReversalsRequest(Fixture.Date)))

@@ -44,11 +44,11 @@ internal static class ReportsEndpoints
             return Results.Content(InventoryLedgerPrintHtml.Render(document), "text/html; charset=utf-8");
         }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/trial-balance", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? costCenterId, [FromQuery] int? accountLevel, [FromQuery] bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
-            .Produces<TrialBalanceResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
+            .Produces<TrialBalanceResult>().RequireAuthorization().WithStrictReportQuery().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/trial-balance/export", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? costCenterId, [FromQuery] int? accountLevel, [FromQuery] bool? showZero,
             ReportService s, HttpContext h, CancellationToken ct) =>
         {
             var bytes = await s.TrialBalanceExport(companyId, Actor(h), Date(from), Date(to),
@@ -57,9 +57,9 @@ internal static class ReportsEndpoints
             h.Response.Headers["X-Content-Type-Options"] = "nosniff";
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "trial-balance.xlsx");
         }).Produces(StatusCodes.Status200OK, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-          .RequireAuthorization().WithTags("RPT01 Trial balance");
+          .RequireAuthorization().WithStrictReportQuery().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/trial-balance/print", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] Guid? costCenterId, [FromQuery] int? accountLevel, [FromQuery] bool? showZero,
             ReportService s, HttpContext h, CancellationToken ct) =>
         {
             var document = await s.TrialBalancePrint(companyId, Actor(h), Date(from), Date(to),
@@ -70,23 +70,23 @@ internal static class ReportsEndpoints
             h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
             return Results.Content(TrialBalancePrintHtml.Render(document), "text/html; charset=utf-8");
         }).Produces(StatusCodes.Status200OK, contentType: "text/html")
-          .RequireAuthorization().WithTags("RPT01 Trial balance");
+          .RequireAuthorization().WithStrictReportQuery().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/trial-balance/{accountId:guid}/drilldown", async (Guid companyId, Guid accountId,
-            [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds,
-            Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
+            [FromQuery] string from, [FromQuery] string to, [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds,
+            [FromQuery] Guid? costCenterId, [FromQuery] int? accountLevel, [FromQuery] bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalanceDrilldown(companyId, accountId, Actor(h), Date(from), Date(to),
                 branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
-            .Produces<TrialBalanceDrilldownResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
+            .Produces<TrialBalanceDrilldownResult>().RequireAuthorization().WithStrictReportQuery().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/accounts/ledger-range", async (Guid companyId,
             [FromQuery] Guid fromAccountId, [FromQuery] Guid toAccountId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, [FromQuery] Guid[]? branchIds, int? offset, int? limit, Guid? costCenterId, string? externalReference,
+            [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] Guid? costCenterId, [FromQuery] string? externalReference,
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.AccountLedgerRange(companyId, fromAccountId, toAccountId, Actor(h),
                 Date(from), Date(to), branchId, offset ?? 0, limit ?? 50, ct, costCenterId, externalReference, branchIds)))
-            .Produces<AccountLedgerRangeResult>().RequireAuthorization().WithTags("RPT02 Account ledger");
+            .Produces<AccountLedgerRangeResult>().RequireAuthorization().WithStrictReportQuery().WithTags("RPT02 Account ledger");
         app.MapGet(p + "/reports/accounts/{accountId:guid}/ledger/print", async (Guid companyId, Guid accountId,
-            [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds,
-            Guid? costCenterId, string? externalReference, ReportService s, HttpContext h, CancellationToken ct) =>
+            [FromQuery] string from, [FromQuery] string to, [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds,
+            [FromQuery] Guid? costCenterId, [FromQuery] string? externalReference, ReportService s, HttpContext h, CancellationToken ct) =>
         {
             var document = await s.AccountLedgerPrint(companyId, accountId, Actor(h), Date(from), Date(to),
                 branchId, ct, costCenterId, externalReference, branchIds);
@@ -96,11 +96,11 @@ internal static class ReportsEndpoints
             h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
             return Results.Content(AccountLedgerPrintHtml.Render(document), "text/html; charset=utf-8");
         }).Produces(StatusCodes.Status200OK, contentType: "text/html")
-          .RequireAuthorization().WithTags("RPT02 Account ledger");
+          .RequireAuthorization().WithStrictReportQuery().WithTags("RPT02 Account ledger");
         app.MapGet(p + "/reports/accounts/{accountId:guid}/ledger", async (Guid companyId, Guid accountId,
-            [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds, int? offset, int? limit, Guid? costCenterId, string? externalReference,
+            [FromQuery] string from, [FromQuery] string to, [FromQuery] Guid? branchId, [FromQuery] Guid[]? branchIds, [FromQuery] int? offset, [FromQuery] int? limit, [FromQuery] Guid? costCenterId, [FromQuery] string? externalReference,
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.AccountLedger(companyId, accountId, Actor(h), Date(from), Date(to), branchId, offset ?? 0, limit ?? 50, ct, costCenterId, externalReference, branchIds)))
-            .Produces<AccountLedgerResult>().RequireAuthorization().WithTags("RPT02 Account ledger");
+            .Produces<AccountLedgerResult>().RequireAuthorization().WithStrictReportQuery().WithTags("RPT02 Account ledger");
     }
 }

@@ -87,6 +87,15 @@ public static class OpenApiSnapshotTests
                 .GetProperty("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").GetProperty("schema");
             if (exportSchema.GetProperty("format").GetString() != "binary" || inventoryExport.GetProperty("security").GetArrayLength() == 0)
                 throw new Exception("RPT09 export must expose authenticated binary XLSX");
+            foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/export",
+                "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger",
+                "accounts/{accountId}/ledger/print", "accounts/ledger-range" })
+            {
+                var operation = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/" + report).GetProperty("get");
+                if (!operation.GetProperty("responses").TryGetProperty("422", out var strictResponse) ||
+                    !strictResponse.GetProperty("content").TryGetProperty("application/problem+json", out _))
+                    throw new Exception("Strict report filter rejection missing from OpenAPI: " + report);
+            }
             var inventoryPrint = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/items/{itemId}/ledger/print").GetProperty("get");
             if (!inventoryPrint.GetProperty("responses").GetProperty("200").GetProperty("content").TryGetProperty("text/html", out _) ||
                 inventoryPrint.GetProperty("security").GetArrayLength() == 0)
