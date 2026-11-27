@@ -55,6 +55,20 @@ public static class AccountLedgerAcceptanceTests
                 page.OpeningBalance != 40 || page.ClosingBalance != 45)
                 throw new Exception("RPT02 pagination changed the source line, balance or totals");
         }
+        try
+        {
+            await f.Service.Report.AccountLedgerPrint(f.CompanyId, f.CashId, f.Clerk, date, date, null, default);
+            throw new Exception("RPT02 read-only permission granted printing");
+        }
+        catch (BusinessException e) when (e.Code == "permission_denied") { }
+        foreach (var actor in new[] { f.Clerk, f.Limited })
+        {
+            var member = f.Store.All<Membership>().Single(x => x.Subject == actor.Subject);
+            await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(),
+                new(actor.Subject, member.GrantedPermissions.Append(Permissions.AccountLedgerPrint).ToArray(),
+                    member.AllBranches, member.BranchIds, member.Version), default);
+        }
+        var printAuditBefore = f.Store.Count<AuditEvent>();
         // RPT02-OP04: one materialized statement, not a succession of page reads.
         var print = await f.Service.Report.AccountLedgerPrint(f.CompanyId, f.CashId, f.Clerk, date, date, null, default);
         if (!print.Rows.Select(x => x.Entry).SequenceEqual(rows) ||
@@ -68,6 +82,15 @@ public static class AccountLedgerAcceptanceTests
         if (restrictedPrint.Rows.Count != 2 || restrictedPrint.Rows.Any(x => x.Entry.JournalId != z.ResourceId) ||
             restrictedPrint.Report.ClosingBalance != 50 || restrictedPrint.BranchNames.Count != 1)
             throw new Exception("RPT02 print leaked another branch");
+        if (f.Store.Count<AuditEvent>() != printAuditBefore + 2 ||
+            f.Store.All<AuditEvent>().Count(x => x.Action == "report.rpt02.print" && x.ResourceId == f.CashId) != 2)
+            throw new Exception("RPT02 extraction audit is missing");
+        try
+        {
+            await f.Service.Report.TrialBalancePrint(f.CompanyId, f.Clerk, date, date, null, default);
+            throw new Exception("RPT02 print granted RPT01 printing");
+        }
+        catch (BusinessException e) when (e.Code == "permission_denied") { }
         // RPT02-OP02: an exhausted page must retain full scope and totals,
         // not reset the running balance to zero or hide prior movements.
         var exhausted = await Page(f.Clerk, 3, 1);

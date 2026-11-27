@@ -477,8 +477,24 @@ public static class HostedApiIntegration
                 using (var missingAccount = await client.GetAsync(gl03LedgerPath.Replace(
                     journalRequest.Lines[0].AccountId.ToString(), Guid.NewGuid().ToString())))
                     Ensure(missingAccount.StatusCode == HttpStatusCode.NotFound, "RPT02 returned nonexistent account");
+                var ledgerPrinter = "rpt02-scoped-printer";
+                var trialPrinter = "rpt01-scoped-printer";
+                Authenticate(Token("sql-clerk"));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(ledgerPrinter, new[] { Permissions.Read, Permissions.AccountLedgerPrint },
+                        false, new[] { journalRequest.BranchId }, null));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(trialPrinter, new[] { Permissions.Read, Permissions.TrialBalancePrint },
+                        false, new[] { journalRequest.BranchId }, null));
+                Authenticate(Token(sourceReader));
                 var ledgerPrintPath = gl03LedgerPath.Replace("/ledger?", "/ledger/print?");
                 var beforeLedgerPrint = await ReadOnlyCounts(connection, companyId);
+                using (var readOnlyDenied = await client.GetAsync(ledgerPrintPath))
+                    Ensure(readOnlyDenied.StatusCode == HttpStatusCode.Forbidden, "RPT02 read permission granted print");
+                Authenticate(Token(trialPrinter));
+                using (var crossScreenDenied = await client.GetAsync(ledgerPrintPath))
+                    Ensure(crossScreenDenied.StatusCode == HttpStatusCode.Forbidden, "RPT01 print granted RPT02 print");
+                Authenticate(Token(ledgerPrinter));
                 using (var printLedger = await client.GetAsync(ledgerPrintPath))
                 using (var ledgerJson = await client.GetAsync(gl03LedgerPath))
                 {
@@ -507,7 +523,12 @@ public static class HostedApiIntegration
                 using (var deniedLedgerPrint = await client.GetAsync(ledgerPrintPath))
                     Ensure(deniedLedgerPrint.StatusCode == HttpStatusCode.Forbidden, "RPT02 print disclosed unauthorized statement");
                 Authenticate(Token(sourceReader));
-                Ensure(beforeLedgerPrint == await ReadOnlyCounts(connection, companyId), "RPT02 print created command effects");
+                var afterLedgerPrint = await ReadOnlyCounts(connection, companyId);
+                Ensure(afterLedgerPrint == (beforeLedgerPrint.Journals, beforeLedgerPrint.Audits + 2,
+                    beforeLedgerPrint.Receipts, beforeLedgerPrint.Outbox), "RPT02 print changed accounting or missing extraction audit");
+                await using (var printDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await printDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt02.print" && x.ActorId == ledgerPrinter) == 2, "RPT02 SQL extraction actor/action mismatch");
                 Console.WriteLine("  HOST PASS RPT02-OP04 printed statement matches JSON and source, protected headers and tenant denial");
                 Console.WriteLine("  HOST PASS RPT02-OP02 stable display totals, empty and exhausted page, scoped JWT and invalid requests");
                 using (var missingSource = await client.GetAsync(path + $"/{Guid.NewGuid()}"))
@@ -593,6 +614,12 @@ public static class HostedApiIntegration
                 var trialPrintPath = $"/api/v1/companies/{companyId}/reports/trial-balance/print?{printScope}";
                 var beforeTrialPrint = await ReadOnlyCounts(connection, companyId);
                 Authenticate(Token(sourceReader));
+                using (var readOnlyDenied = await client.GetAsync(trialPrintPath))
+                    Ensure(readOnlyDenied.StatusCode == HttpStatusCode.Forbidden, "RPT01 read permission granted print");
+                Authenticate(Token(ledgerPrinter));
+                using (var crossScreenDenied = await client.GetAsync(trialPrintPath))
+                    Ensure(crossScreenDenied.StatusCode == HttpStatusCode.Forbidden, "RPT02 print granted RPT01 print");
+                Authenticate(Token(trialPrinter));
                 using (var printed = await client.GetAsync(trialPrintPath))
                 using (var reportResponse = await client.GetAsync(trialPath + "&showZero=false"))
                 {
@@ -624,7 +651,12 @@ public static class HostedApiIntegration
                 using (var deniedPrint = await client.GetAsync(trialPrintPath))
                     Ensure(deniedPrint.StatusCode == HttpStatusCode.Forbidden, "RPT01 print leaked to nonmember");
                 Authenticate(Token("sql-approver"));
-                Ensure(beforeTrialPrint == await ReadOnlyCounts(connection, companyId), "RPT01 print created command effects");
+                var afterTrialPrint = await ReadOnlyCounts(connection, companyId);
+                Ensure(afterTrialPrint == (beforeTrialPrint.Journals, beforeTrialPrint.Audits + 1,
+                    beforeTrialPrint.Receipts, beforeTrialPrint.Outbox), "RPT01 print changed accounting or missing extraction audit");
+                await using (var printDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await printDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt01.print" && x.ActorId == trialPrinter) == 1, "RPT01 SQL extraction actor/action mismatch");
                 Console.WriteLine("  HOST PASS RPT01-OP04 printed rows and totals equal JSON, protected metadata and tenant denial");
                 Console.WriteLine("  HOST PASS RPT01-OP03 grouped trial balance drilldown to posting accounts and ledger; scoped JWT and rejection");
                 Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");

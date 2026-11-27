@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Ameen.Erp.Api;
 using Ameen.Erp.Application;
+using Ameen.Erp.Domain;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -101,6 +102,13 @@ public static class HttpIntegration
             Ensure(json.RootElement.GetProperty("totalClosingDebit").GetString() == "100", "Decimal HTTP contract differs");
             Ensure(json.RootElement.GetProperty("from").GetString() == "2026-01-01", "Date HTTP contract differs");
 
+            foreach (var actor in new[] { f.Approver, f.Limited })
+            {
+                var member = f.Store.All<Membership>().Single(x => x.Subject == actor.Subject);
+                await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(),
+                    new(actor.Subject, member.GrantedPermissions.Append(Permissions.AccountLedgerPrint).ToArray(),
+                        member.AllBranches, member.BranchIds, member.Version), default);
+            }
             var ledgerPrintPath = $"/api/v1/companies/{f.CompanyId}/reports/accounts/{f.CashId}/ledger/print?from=2026-01-01&to=2026-12-31";
             using (var printable = await client.GetAsync(ledgerPrintPath))
             {

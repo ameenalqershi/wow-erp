@@ -8,6 +8,7 @@ public sealed partial class ReportService
         DateOnly from, DateOnly to, Guid? branchId, CancellationToken ct,
         Guid? costCenterId = null, string? externalReference = null, Guid[]? branchIds = null)
     {
+        await Authorize(cid, actor, Permissions.AccountLedgerPrint, branchId, ct);
         var (report, rows) = await BuildAccountLedger(cid, accountId, actor, from, to, branchId, 0, null, ct,
             costCenterId, externalReference, branchIds);
         var extractedAt = clock.UtcNow;
@@ -22,6 +23,12 @@ public sealed partial class ReportService
         var centers = (await store.Find<CostCenter>(cid, x => ids.Contains(x.Id), ct))
             .ToDictionary(x => x.Id, x => x.Code + " — " + x.Name);
         Check.That(centers.Count == ids.Length, "reference_not_found", "تعذر مطابقة مراكز تكلفة التقرير.", ErrorKind.NotFound);
+        Audit(cid, actor, "report.rpt02.print", account, new
+        {
+            report.AccountId, report.BranchIds, report.From, report.To, report.Currency,
+            report.CostCenterId, report.ExternalReference, RowCount = rows.Count, ExtractedAt = extractedAt
+        });
+        await store.Save(ct);
         return new(report, company.Name, account.Code, account.Name, names,
             costCenterId is Guid selected ? centers[selected] : null, centers, rows, extractedAt);
     }
