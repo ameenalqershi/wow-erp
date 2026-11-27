@@ -722,6 +722,36 @@ public static class HostedApiIntegration
                 await using (var exportDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
                     Ensure(await exportDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
                         x.Action == "report.rpt01.export" && x.ActorId == trialExporter) == 1, "RPT01 export SQL audit missing");
+                var beforeStrictFilters = await ReadOnlyCounts(connection, companyId);
+                var strictRoutes = new (string Url, string Subject)[]
+                {
+                    (trialPath, sourceReader),
+                    (trialPrintPath, trialPrinter),
+                    (exportPath, trialExporter),
+                    (trialPath.Replace("/trial-balance?", $"/trial-balance/{rangeId}/drilldown?"), sourceReader),
+                    (gl03LedgerPath, sourceReader),
+                    (ledgerPrintPath, ledgerPrinter),
+                    (rangePath, sourceReader)
+                };
+                foreach (var (url, strictSubject) in strictRoutes)
+                {
+                    Authenticate(Token(strictSubject));
+                    foreach (var (suffix, code) in new[] {
+                        ("&displayCurrency=USD", "unsupported_report_filter"),
+                        ("&documentState=Draft", "unsupported_report_filter"),
+                        ("&FROM=2025-01-01", "ambiguous_report_filter") })
+                    {
+                        using var rejection = await client.GetAsync(url + suffix);
+                        using var problem = JsonDocument.Parse(await rejection.Content.ReadAsStringAsync());
+                        Ensure(rejection.StatusCode == HttpStatusCode.UnprocessableEntity &&
+                            problem.RootElement.GetProperty("code").GetString() == code,
+                            "Financial report silently accepted unsupported or duplicate filter: " + url);
+                    }
+                }
+                Authenticate(Token("sql-approver"));
+                Ensure(beforeStrictFilters == await ReadOnlyCounts(connection, companyId),
+                    "Rejected report filters created durable effects");
+                Console.WriteLine("  HOST PASS RPT01/RPT02 strict query contract across seven routes; no extraction effects");
                 Console.WriteLine("  HOST PASS RPT01-OP05 Excel rows and totals, scoped permission and audited extraction");
                 Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");
