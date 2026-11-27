@@ -50,6 +50,10 @@
 
 أُضيف المستند [`GL_DEPENDENCY_READINESS_20261104.md`](GL_DEPENDENCY_READINESS_20261104.md) اعتمادًا على العرض المحفوظ **GL — دفعة التنفيذ الحالية** في Notion عبر `mode=view` (3 صفحات، 253 مهمة)، مع مطابقة الموانع بالتحليل الأصلي والكود وCI الحالي. يميز بين 123 مهمة مكتملة و30 جزئية و30 محجوبة و66 لم تبدأ و4 قيد التنفيذ/التحقق؛ ليس ترخيصًا لتحويل المهام الجزئية إلى مكتملة. يصف بالتحديد سياقات الاعتماد الناقصة SYS12/13 وSAL/PUR وGL14/SYS09 وكتالوجات GL08/09/10 ومرجعية أرباح السنة GL11 واستثناء GL12. التقرير لا يغير سياستها ولا بيانات الإنتاج، ويجب إعادة تقييمه عند تقدم الوكلاء الآخرين. آخر حزمة إقفال HTTPS في GL11 PR #112 مدمجة على `gl` SHA `e9f63333956d86aa0df9e667c0f1e8d2bfdc89dd` مع CI postmerge [#41727283104](https://github.com/ameenalqershi/ameen-erp/actions/runs/41727283104) ناجح؛ لم تدمج هذه الدفعة التوثيقية `main` أو تغير منجزات وظيفية.
 
+## SAL13 — أبعاد فلترة المبيعات وحجب الربحية (5 نوفمبر 2026)
+
+تم تأسيس SalesMovementReportFilter وSalesMovementReportVisibility دون تشغيل تقرير: فروع مصرح بها، تواريخ، عملة، حالات وتفصيل ومراجع اختيارية، مع منع نطاق فرع خارجي وحجب التكلفة والربح دون تفويض مثبت من الخدمة المستقبلة. ثلاثة اختبارات مجال موجبة وسالبة؛ لا SQL/EF/API ولا احتساب صافي المبيعات أو ربط مستندات SAL06/SAL07. SAL13-01 جزئية وتبقى شروط الإغلاق والتكامل والأمان معلقة، تفصيلًا في [`sal13-report-domain-20261105.md`](sal13-report-domain-20261105.md). يلزم تحقق CI على SHA النهائي قبل مراجعة SUPERVISOR، ولا دمج مباشر.
+
 ## INV05-GAP03 / INV05-03 — قبول SQL لسجل الدفعة التاريخي بعد عكس المخزون (4 نوفمبر 2026)
 
 **العمل المستقل:** إضافة حالة SQL Server حقيقية إلى `InventoryOpeningSqlIntegration.cs` لتغطية هوية **Lot**، دون إعادة اختبار Serial السابق. تنشئ الحالة صنفًا ودفعة وتاريخ إنتاج/صلاحية ورقم Lot مستقلًا، ثم ترحّل افتتاح كمية وقيمة وتعكسه عبر المسار المعتمد. تتحقق من بقاء حركتي StockMovement بصافي صفر، ومن رفض تغيير رمز الهوية ورقم الدفعة وتاريخ الإنتاج أو الصلاحية بعد العكس؛ الرفض لا ينشئ Audit/Idempotency/Outbox/Journal ولا يغير Version/Revision. تسمح بتغيير الوصف دون تغيير الهوية التاريخية. لا توجد سياسة تكلفة أو جودة جديدة، ولا تغيير لواجهات API أو ترحيلات SQL أو المصدر التحليلي.
@@ -219,6 +223,10 @@
 
 الاختبارات تغطي الحقول والعزل والعلاقات والتدقيق، وترقية SQL قابلة للإعادة مع اختبار الفشل الذري ونسخة مالك الإصدار والمراجع المركبة على SQL معزول، وعدم فعالية أي إجراء استيراد في Domain أو EF. النجاح المحلي وCI على SHA نهائي شرطان قبل إغلاق SYS13-01 وحدها؛ لا تعديل لمجلد التحليل أو بيانات الإنتاج أو `main`.
 
+
+## SAL04 — أساس أمر البيع غير التشغيلي (5 نوفمبر 2026)
+
+أضيف SalesOrder وSalesOrderLine لتثبيت حقول أمر البيع وسطور الأصناف والأسعار والكميات ومرجع عرض السعر الاختياري وحقول التدقيق، مع 3 اختبارات مجال إيجابية وسلبية؛ دون حجز مخزون أو حالة موافقة أو تحويل عرض أو ترحيل مالي أو تكامل SQL/EF/API. باقي SAL14/SAL02/INV11/SAL05/SAL06/SYS والتكامل الحي شروط إغلاق معلقة. يظل SAL04-01 جزئيا، راجع [`sal04-order-domain-20261105.md`](sal04-order-domain-20261105.md). يتطلب CI على SHA النهائي قبل مراجعة SUPERVISOR؛ لا دمج مباشر.
 
 ## SYS12-01 — الأساس البنيوي لقوالب الطباعة (3 نوفمبر 2026)
 
@@ -505,6 +513,10 @@
 التحقق المحلي .NET10 Release وتحليل traceability: **411/411 PASS دون SQL حي**. بقية اختبارات الوحدة وخدمة الصنف والترحيل وSQL/HTTPS/JWT/OpenAPI موجودة في ItemSqlIntegration.cs وInventoryOpeningSqlIntegration.cs وHostedApiIntegration.cs. يجب التحقق من نجاح CI SQL/HTTPS على رأس الفرع النهائي قبل إغلاق INV04-CTRL01 وAC01/AC02. تظل INV04-GAP01/GAP02/GAP03 والتكاملات الواسعة في وضعها الحقيقي؛ لا يمس التحليل الأصلي.
 
 
+## SAL05 — بنية أمر تسليم مبيعات دون حركة مخزون (5 نوفمبر 2026)
+
+أضيف SalesDeliveryOrder وSalesDeliveryOrderLine لحقول SAL05 مع ثلاثة اختبارات بنيوية موجبة وسالبة للمراجع والكميات والحقول الاختيارية، دون SQL/EF/API أو صرف مخزني أو فوترة. ضابط ربط سطر التسليم بسطر أمر البيع لم يحدد له حقل صريح في المصدر، ويظل الاعتراف والسياسة معلقين. يبقى SAL05-01 جزئيا حتى تكامل SAL04 وINV08 وSAL06 وSYS وقبول SQL/HTTP/JWT. تفاصيل الحواجز في docs/backend/sal05-delivery-domain-20261105.md.
+
 ## INV03-AC02 وINV03-GAP01 — قبول التحويل المرتبط بالصنف وقفل مراجع الوحدة (3 نوفمبر 2026)
 
 توسعة قبول مستقلة في ItemTests.cs: صنفان يستخدمان نفس وحدة الكرتون، الأول بمعامل 12 والثاني 24، ويجب ألا يتسرب أي معامل تحويل من صنف لآخر؛ وحدة ثالثة غير مرتبطة بالصنف تُرفض، ولا تنشأ حركة مخزون أو قيد بمجرد المعاينة. اختبار مرجع الوحدة البديلة يتحقق من عرض الصنف المرتبط، ومنع تعديل رمز الوحدة القياسي وهي مرتبطة، ثم يستمر قفل البنية عند تعطيل الصنف مع السماح بتعطيل الوحدة غير المستخدمة من صنف فعال؛ يمنع إعادة تفعيل الصنف إذا كانت إحدى وحداته معطلة. لا يتم تغيير سياسات المخزون أو الحقول أو SQL أو OpenAPI.
@@ -701,6 +713,10 @@
 
 **الاستثناء المسموح ليس تجاوزًا من الواجهة**: مصدر افتتاح المخزون `InventoryOpeningService.Posting` يرحل حسابه الرقابي من مستند المصدر مع أثر مخزون مرتبط؛ اختبارات INV06 SQL/HTTP مثبتة مسبقًا. لا نغيّر سياسة سماح الحسابات الرقابية ولا أصل `muhaseb-erp-analysis`، ولا نمسّ نظام SYS أو عمليات الإنتاج. نتيجة المحلي دون SQL حي **378/378 PASS** على .NET 10، وبقية دليل SQL/HTTPS وختم CI على رأس `gl` مطلوب قبل إغلاق GL03-T02.
 
+
+## SAL12 — متابعة تحصيل بنيوية دون استثناء ائتمان فعال (5 نوفمبر 2026)
+
+أضيف CustomerCollectionFollowUp لحقول SAL12 الأصلية وتحقق المراجع والتواريخ والمبلغ وسبب الاستثناء المشروط، مع 3 اختبارات مجال موجبة وسالبة. لا تفعيل لائتمان أو موافقة أو ذمم أو API أو SQL/EF. مدة الاستثناء المطلوبة في الضابط ليست لها خانة محددة في بطاقة التحليل، ويجب اعتمادها قبل أي قبول تشغيلي. مرجع الحواجز [`sal12-collections-domain-20261105.md`](sal12-collections-domain-20261105.md). SAL12-01 جزئية ويطلب CI SHA النهائي ومراجعة SUPERVISOR قبل دمج.
 
 ## GL03-FG03 — تحقق حقل البيان والمرجع الخارجي والحالة (3 نوفمبر 2026)
 
@@ -1667,3 +1683,28 @@ Confirmed against the original read-only SYS10 dictionary and current `DocumentN
 ## CORE SPEC01 — تدقيق ربط قرارات النطاق (4 نوفمبر 2026)
 
 أضيف تقرير [تدقيق SPEC01 والقرارات D01–D08](core-spec01-decisions-audit-20261104.md) وحارس `backend/scripts/check_scope_decision_links.py` مع اختبارات قبول إيجابية وسلبية ضمن discovery الحالي لـ `verify.py`. القرارات الثمانية كلها محجوبة في Notion؛ التقرير يربط مصدرها بالمهام الحالية ولا يحسم سياسة أو مالك قرار غير محدد. هذه حزمة قراءة/مطابقة مستقلة من `temp/core-spec01-decision-audit-20261104-chat`؛ تبقى SPEC01 جزئية إلى حين قبول CI/مراجعة SUPERVISOR، وتبقى القرارات محجوبة ولا يتحول تدقيق النطاق إلى شهادة جاهزية إنتاج.
+
+
+## CORE SPEC05 — data and controls reference audit (2026-11-05)
+
+Added a read-only traceability audit for the complete original `muhaseb-erp-analysis/docs/05-data-and-controls.md` source. The audit separates 14 cross-screen requirement groups (DC01–DC14) from field-level, BR and AT implementation claims and maps each group to existing V1 Notion tasks. Artifacts: `docs/backend/core-spec05-data-controls-audit-20261105.md`, `docs/backend/core-spec05-data-controls-traceability.csv`, `backend/scripts/check_spec05_data_controls.py`, and eight positive/negative tests in `backend/scripts/tests/test_spec05_data_controls.py`. Every row explicitly records a blocker and an unassigned decision owner where the Notion record has no named owner; runtime acceptance remains `not-verified`. No original analysis, DDL, policy, permission, accounting behavior, production data, or SLA/RPO/RTO was changed or inferred. Exact-head CI on PR #171 passed: 79 Python tests and 533/533 backend/SQL/HTTP integration checks; this audit does not close operational requirements in other domains.
+
+
+## CORE SPEC06 — reference parity evidence audit (2026-11-05)
+
+Added a read-only audit of the complete original `muhaseb-erp-analysis/docs/06-reference-parity.md`, `data/sources.json`, and `data/parity-matrix.csv`. The eight source gaps GAP01–GAP08 are linked to existing Notion decisions/tasks. The source matrix currently contains 150 unique screen rows, all `غير متحقق`; reference build, page/screenshot, owner and verification-date fields remain blank. S01–S03 provide only broad product-domain evidence; S04–S06 remain recorded as inaccessible PDFs. Added report, traceability CSV, fail-closed checker, and eight positive/negative tests. No original analysis or matrix was changed; no parity percentage or match claim is made. D01/D02 and access to an authorized reference build remain prerequisites for actual comparison. Exact-head CI passed on combined PR #171 (79 Python tests; 533/533 backend verification).
+
+
+## CORE SPEC07 — workflow and acceptance-scenario audit (2026-11-05)
+
+Added a read-only traceability audit of the complete original `muhaseb-erp-analysis/docs/07-workflows-and-acceptance.md`. All 30 future acceptance scenarios AT01–AT30 are linked to their existing Notion scenario pages with source screens, expected result and an explicit blocker/dependency. Added a CSV, audit report, fail-closed checker and eight positive/negative tests. The source explicitly describes these as future acceptance tests; no scenario is reported as executed or passed. Policy-sensitive examples (FX valuation, inventory-cost allocation, tax, payroll, manufacturing, project retention) remain examples/dependencies, not new policies. No source-analysis changes.
+
+
+## CORE SPEC08 — report contracts and roadmap audit (2026-11-05)
+
+Added a read-only audit of the complete original `muhaseb-erp-analysis/docs/08-reports-and-roadmap.md`. All 19 report contracts are mapped to existing RPT-CONTRACT-01..19 Notion tasks, and all seven roadmap phases are mapped to existing decision/acceptance tasks. The shared report controls (company/branch/period/currency/conversion/status/extraction time, authorized drill-through, filter-consistent export, single-source aggregation) and report-specific reconciliation rules are recorded. Added two CSV matrices, an audit report, fail-closed checker and eight positive/negative tests. No report query was executed; all evidence remains `not-verified`. The source's no-technology/no-date/no-cost boundary is preserved.
+
+
+## Combined SPEC05–SPEC08 validation (2026-11-05)
+
+PR #171 exact head `32dd2245a10b7dea861774e228719ecbfc38603d` passed GitHub Actions run `42108701864` (run 1073): Python `79/79`, backend/.NET + isolated SQL + HTTP/JWT/OpenAPI verification `533/533`, API publish succeeded, SQL cleanup succeeded. PR #171 remains open and unmerged for SUPERVISOR review. This CI validates the current backend baseline and the four audit guards; it does not mean the 30 AT scenarios, 19 reports, 150 reference screen comparisons, backup/restore or other blocked operational acceptance work has been executed.
