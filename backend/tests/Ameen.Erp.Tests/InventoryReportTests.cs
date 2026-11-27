@@ -269,7 +269,7 @@ public static class InventoryReportTests
                 document.WarehouseName is not null && document.ExtractedAt != default);
             await Error("branch_access_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited,
                 Fixture.Date, Fixture.Date.AddDays(1), f.OtherBranchId, null, null, 0, 1, default));
-            await Error("invalid_pagination", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner,
+            await Error("invalid_pagination", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited,
                 Fixture.Date, Fixture.Date.AddDays(1), null, null, null, 0, 201, default));
             foreach (var denied in new[] { reader, printOnly })
                 await Error("permission_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, denied,
