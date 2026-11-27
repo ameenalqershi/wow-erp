@@ -12,6 +12,39 @@
 
 أضيف حارس قراءة فقط يطابق 15 خريطة تنقل أصلية مع 150 شاشة في سجل التحليل، ويتحقق من المعرّفات والتسميات والفئات والحواف وصحة SVG، مع 8 اختبارات قبول موجبة وسالبة في `backend/scripts/tests/test_module_diagram_navigation.py`. يرجع إلى [تقرير التدقيق](core-module-diagram-navigation-audit-20261104.md). المخرجات لا تمثل تبعيات بناء أو اكتمال الشاشات. التنفيذ على `temp/core-diagram-nav-audit-20261104-chat` ولا دمج مباشر؛ يحتاج اختبار CI على HEAD النهائي ومراجعة SUPERVISOR قبل إغلاق مهام DGM-01–15.
 
+
+## SYS01-GAP02 — ISO 3166-1 alpha-2 country reference (5 November 2026)
+
+Replaced SYS01's shape-only two-letter country check with an explicit code reference snapshot containing the 249 currently assigned ISO 3166-1 alpha-2 values (code values only; no country names copied). The source standard recommends alpha-2 for general-purpose country reference; the ISO 3166 Maintenance Agency's Online Browsing Platform is the normative source and is kept current: https://committee.iso.org/iso-3166-country-codes.html. Snapshot was cross-checked against the current 249-code listing on 16 October 2026. User-assigned/reserved values such as ZZ, AA, XK, UK and malformed three-letter YEM are rejected; lowercase accepted input remains normalized to uppercase.
+
+Acceptance now iterates all 249 unique assigned codes through the domain constructor, rejects unassigned codes on company create and edit without changing audit/idempotency/version state, adds a real SQL Server rejection, and a production HTTPS/JWT negative edit proving no company mutation. No migration or API/OpenAPI contract change; no country names, jurisdiction-specific tax/legal registration rules, or editable company country-card lifecycle were invented. SYS01-F09 traceability binds to the ISO code reference; the remaining company profile and historical functional-currency conversion gaps stay open. SYS01-GAP02 may close only for the country-code reference boundary after exact-head CI. SYS01 screen remains partial.
+
+
+## SYS03 — nondefault year and period dates, immutable rejection (5 November 2026)
+
+Source fields SYS03-F05/F06 and SYS03-F08/F09 require explicit calendar dates. This independent additional domain/API guard rejects default year starts/ends, default period starts/ends and an empty period-to-year reference *before* persistence or calendar coverage. A regression checks valid fiscal year/period construction, direct domain rejection, authenticated service rejection for both year dates and both explicit period dates, and absence of added years, periods, audit or idempotency receipts on rejected requests.
+
+SYS03-FG02 and its calendar acceptance tasks were previously completed and are **not counted again**. This adds missing-date safety only; branch-calendar policy, edits to existing calendars, GL11/GL12 close/reopen permissions and historical audit remain their separate dependencies. No migration or business-calendar rule is invented; original analysis/production unchanged. CI on the final SHA must verify isolated SQL, HTTP/JWT/OpenAPI and Release before supervisor integration.
+
+
+## SYS07-AC02 / FG05 and SYS08-AC02 — fail-closed hydrated role and assignment snapshots (5 November 2026)
+
+An independent security correction validates the *entire hydrated SYS07 role header* before any direct or assigned role grant: nonempty identity, valid branch scope, creator, name, responsibility and nondefault creation time, positive revision and chronological last-modified timestamp. It also rejects missing or duplicate rule persistence IDs even when screen/operation tuples differ. SYS08's pure assigned-role evaluator now fails closed when a tenant-scoped assignment snapshot includes a foreign, malformed or duplicated link (including an unrelated membership), or a blank membership subject. Positive tests ensure a normal tenant-scoped grant remains valid and unrelated valid links do not suppress it. Negative domain regressions individually corrupt and restore each field to demonstrate there is never an authorization bypass.
+
+This improves the **pure, currently unconnected** permission evaluator and safe role creation only; it does not grant access to HTTP/JWT, does not enable SYS07/SYS08 CRUD or role persistence and does not assert full acceptance of the security module. SYS07 rules and SYS08 scopes still require approved role catalogs, group/warehouse/cashbox branch policies, audited role administration, complete tenant-scoped snapshots and authorised integration. No financial actions or production role grants are created; no original analysis or diagrams modified. Verify Release and all existing tests locally and isolated SQL/HTTPS/JWT/OpenAPI CI on the final SHA; SUPERVISOR alone reviews/integrates.
+
+
+## SYS11/SYS12/SYS13/SYS15-FG04 — تدقيق وقت الإنشاء في الأساسات البنيوية (5 نوفمبر 2026)
+
+حماية أربع بطاقات مستقلة من وقت إنشاء افتراضي غير صالح في طبقة المجال: GeneralOptionsPolicy (SYS11-F13)، PrintTemplate (SYS12-F11)، DataImportBatch (SYS13-F12)، BackupJobConfiguration (SYS15-F11). أُضيفت أربع اختبارات رفض تضمن عدم إنشاء سجل أو سطور مرتبطة وعدم تغيير Audit/Journal. لا تشغيل لربط محاسبي أو طباعة أو استيراد أو جدولة نسخ/استعادة؛ تظل حواجز EF وسياقات التفويض كما هي.
+
+تم تصحيح traceability.py لعرض الأساسات البنيوية الأصلية لهذه الشاشات و55 حقلاً بحالة **partial** بدل حذفها من الخريطة، مع روابط اختبارات المصدر والاعتماديات المتبقية. لا إغلاق لأي شاشة أو FG04 وظيفيًا: يحتاج كل قسم إدارة وتشغيلًا معتمدين وHTTP/JWT/OpenAPI/SQL concurrency وتدقيقًا فعليًا. لا تُفترض كتالوجات أو سياسات عامة أو مالية، ولا تعديل للتحليل الأصلي أو الإنتاج. يتطلب قبول هذه الدفعة تحقق .NET 10 المحلي وCI SQL المعزول على SHA النهائي ومراجعة SUPERVISOR، دون دمج main من الوكيل.
+
+
+## SYS16-FG04 — رفض وقت إنشاء غير صالح (5 نوفمبر 2026)
+
+في نطاق أساس SYS16 البنيوي، يرفض PaymentTerm إنشاء بطاقة بطريقة دفع نقد/بطاقة/آجل عندما يكون CreatedAt وقتًا افتراضيًا غير صالح (default(DateTimeOffset))، قبل إنشاء خطة الأقساط أو أي أثر. أُضيف اختبار SYS16-FG04 مستقل لجميع الأنواع الثلاثة يثبت الرفض برمز payment_term_audit_time_invalid دون إضافة بطاقة/سطر أو تغيير سجل تدقيق أو قيد. تم تحديث التتبع للحقـل SYS16-F12 مع الاحتفاظ بالحالة partial؛ لا API لإدارة طرق الدفع، وتظل كتابات EF محظورة حتى اعتماد الصلاحيات وسياسة نوع الوسيلة وحساب التسوية وSAL/PUR/POS. تم التحقق محليًا بـ .NET 10: **531/531 نجاح** دون SQL حي. يلزم نجاح CI على SHA الفرع مع SQL معزول، ثم مراجعة SUPERVISOR. لا تعديل للمخططات الأصلية أو بيانات الإنتاج، ولا دمج main.
+
 ## SAL01-01 — بنية بطاقة العميل فقط (4 نوفمبر 2026)
 
 **تحديث قبول 4 نوفمبر:** نجح CI على SHA `3d8c991b5846ccf4491e212706b032d80e549cc4` في [GitHub Actions #41887573897](https://github.com/ameenalqershi/ameen-erp/actions/runs/41887573897): `518/518 passed; 0 failed`، بما يشمل SQL Server المعزول وترقية SQL 046 وعزل الشركة ومنع تكرار رمز العميل وتدقيق الحقول والائتمان. فشل التشغيل القديم قبل تخصيص Runner، ولا يمثل فشل اختبارات. PR #118 لا يزال Draft، وتظل الشاشة جزئية لحين الاعتماديات والسياسات وواجهات التشغيل؛ لا تُحوّل إلى مكتملة.
@@ -1321,17 +1354,17 @@ On branch `temp/gl14-agent03-rejected-edit-atomicity-20261102` from main `d02dbb
 
 ## ملخص آلي من الأدلة المسجلة
 
-الشاشات: 150؛ منفذة جزئيًا: 43؛ لم تبدأ: 107؛ مكتملة: 0. الحقول: 2759؛ المخططات: 28؛ القواعد: 20. لا يمثل ذلك نسبة اكتمال مالي أو تشغيلي.
+الشاشات: 150؛ منفذة جزئيًا: 47؛ لم تبدأ: 103؛ مكتملة: 0. الحقول: 2759؛ المخططات: 28؛ القواعد: 20. لا يمثل ذلك نسبة اكتمال مالي أو تشغيلي.
 
 آخر تقرير محفوظ: `2026-11-02T19:37:11.777004+00:00`؛ النتيجة `passed`؛ 356/356، فشل 0؛ SQL حي مطلوب: `True`. بصمة المصادر: `c13d8b407ef2a454df29b79d1953d501f10d880091dcfe4a161a628421700e18`. هذه نتيجة التقرير المحفوظ وليست فحصًا جديدًا للشجرة الحالية.
 
-تغطية الحقول المنفذة/المشتقة/التدقيق: **14.5%** (399/2759)؛ الحقول الجزئية: 248. نسبة الشاشات التي بدأ تنفيذها: **28.7%**. هذه مؤشرات ربط متطلبات وليست نسبة جاهزية تشغيلية أو ساعات إنجاز.
+تغطية الحقول المنفذة/المشتقة/التدقيق: **14.4%** (396/2759)؛ الحقول الجزئية: 306. نسبة الشاشات التي بدأ تنفيذها: **31.3%**. هذه مؤشرات ربط متطلبات وليست نسبة جاهزية تشغيلية أو ساعات إنجاز.
 
 ### حصيلة الأقسام
 
 | القسم | الشاشات | جزئي | لم يبدأ |
 | --- | --- | --- | --- |
-| SYS | 17 | 12 | 5 |
+| SYS | 17 | 16 | 1 |
 | GL | 14 | 11 | 3 |
 | CASH | 11 | 9 | 2 |
 | INV | 16 | 6 | 10 |
@@ -1351,11 +1384,11 @@ On branch `temp/gl14-agent03-rejected-edit-atomicity-20261102` from main `d02dbb
 
 | الحالة | العدد |
 | --- | --- |
-| audit | 46 |
+| audit | 44 |
 | derived | 4 |
-| implemented | 349 |
-| partial | 248 |
-| pending | 2112 |
+| implemented | 348 |
+| partial | 306 |
+| pending | 2057 |
 
 implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في التدقيق؛ derived مشتق؛ partial جزئي؛ pending غير منفذ. راجع fields-implementation.csv لمعرفة اسم كل حقل وعقده.
 
@@ -1363,7 +1396,7 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 
 | الشاشة | الاسم | الحالة | المنفذ | المتبقي |
 | --- | --- | --- | --- | --- |
-| SYS01 | الشركات | partial | بطاقة قانونية وعنوانية وإصدار عددي؛ تحرير وحالة واستخدام وتدقيق؛ قفل العملة بعد الأثر وربط بداية أول سنة؛ منع كتابة الشركة المعطلة أو ناقصة البيانات | ملفات الدولة وشروط إلزام التسجيل الضريبي والتجاري والعنوان الوطني حسب الاختصاص؛ مرجع دول معتمد بدل تحقق شكل الرمز؛ مشروع تحويل العملة الوظيفية التاريخي |
+| SYS01 | الشركات | partial | بطاقة قانونية وعنوانية وإصدار عددي؛ تحرير وحالة واستخدام وتدقيق؛ قفل العملة بعد الأثر وربط بداية أول سنة؛ منع كتابة الشركة المعطلة أو ناقصة البيانات | ملفات الدولة وشروط إلزام التسجيل الضريبي والتجاري والعنوان الوطني حسب الاختصاص؛ بطاقة دولة قابلة للإدارة/التعطيل ونطاقها التشغيلي؛ مشروع تحويل العملة الوظيفية التاريخي |
 | SYS02 | الفروع والإدارات | partial | بطاقة فرع وعنوان وشجرة بلا دورات؛ بحث ضمن الصلاحية دون توريث الفروع؛ قفل بنية المستخدم؛ مركز افتراضي متسق؛ تعديل وحالة واستخدام وتدقيق | نوع الموقع وقيمه ومرجع المدير بانتظار حسم التحليل؛ المركز الافتراضي إعداد لا يملأ سطور القيود تلقائيًا؛ الشركات القديمة تستكمل عناوين فروعها قبل التشغيل |
 | SYS03 | السنوات والفترات المالية | partial | تقويم شهري افتراضي أو فترات صريحة تغطي السنة بلا فجوات أو تداخل؛ حالة إقفال الأستاذ مشتقة؛ بحث واستخدام وتدقيق؛ حماية التزامن والترحيل | تعديل تقويم قائم وإصدار عددي وإقفال السنة الشامل غير منفذ؛ لا يوجد تقويم مختلف لكل فرع؛ الفترة ذات أكثر من موعد دوري ترفض التوليد؛ لا حذف أو تعطيل بديل للإقفال |
 | SYS04 | العملات | partial | بطاقة عملة بأسماء ورمز عرض واسم جزء وإصدار عددي؛ تحرير وحالة وبحث وتدقيق؛ قفل الدقة بعد الاستخدام وفحص التعطيل عند الترحيل | الرمز الداخلي موحد مع رمز العملة ولا يربط بقائمة ISO خارجية وغير قابل لإعادة التسمية؛ أسماء العملة الوظيفية والبطاقات القديمة تبدأ برمز ISO وتحتاج تحريرًا؛ تحويل الدقة التاريخية غير متاح |
@@ -1373,11 +1406,11 @@ implemented يعني ربط الحقل بعقد؛ audit يعني وجوده في
 | SYS08 | نطاقات بيانات المستخدم | partial | نطاق الشركة والفروع مطبق على الأوامر والتقارير؛ ربط عضوية-دور محمي SQL 030 دون إنفاذ | نطاق الحساب والمخزن والصندوق والعملاء ومراكز التكلفة المستقل؛ تفعيل إدارة الدور وربطه بالمستخدم |
 | SYS09 | مسارات الاعتماد | partial | SYS09 dependency foundation: tenant-scoped route and stage schema, amount decimal(20,6), optional branch, currency FK, audit revision, stage uniqueness and GL14 route FK; domain-only conservative branch/amount overlap preflight with hydrated stage/audit integrity and cross-route stage identity uniqueness, and atomic stage replacement with revision; all unvalidated writes blocked | SYS07 role FK exists but membership/active/scope/deny enforcement is absent; document type allowed list, transactional overlap/scope arbitration, cross-currency policy, stage execution, notifications, authorization, endpoints and acceptance not implemented |
 | SYS10 | ترقيم المستندات | partial | سلاسل عامة أو لفرع وسنة ونوع مستند وبادئة ورقم تال قابل للإعداد؛ حجز ذري موثق لا يعاد بعد الإلغاء؛ ربط اليومية والافتتاحات؛ تعديل وتعطيل وبحث واستخدام وإصدار وتدقيق مع حماية السجلات التاريخية | أنواع التشغيل الحالية Journal وInventoryOpening؛ الترقيم الضريبي مرفوض حتى TAX05 وملف الدولة؛ باقي أنواع المستندات تربط عند تنفيذ مصادرها ولا تدعى جاهزيتها |
-| SYS11 | الخيارات العامة والربط المحاسبي | not-started | — | الشاشة كاملة |
-| SYS12 | قوالب الطباعة | not-started | — | الشاشة كاملة |
-| SYS13 | استيراد البيانات والأرصدة | not-started | — | الشاشة كاملة |
+| SYS11 | الخيارات العامة والربط المحاسبي | partial | الخيارات العامة والربط المحاسبي: بطاقات وسطور مرجعية محمية في SQL/EF بنطاق الشركة؛ لا تفعيل للربط أو الترحيل | قوائم النوع والحدث ودور الحساب والنطاق وصلاحيات التحرير والموافقة لم تعتمد؛ API وHTTP/JWT التشغيلي غير منفذين |
+| SYS12 | قوالب الطباعة | partial | قالب طباعة بنيوي محمي في SQL/EF بنطاق الشركة دون اعتماد قوالب بلد أو طباعة فعلية | قائمة الوثائق واللغات ومقاسات الورق والحقول الإلزامية والوسم والواجهات والتفويض غير معتمدة |
+| SYS13 | استيراد البيانات والأرصدة | partial | دفعة استيراد وحقول ربط بنيوية محمية في SQL/EF؛ لم ينفذ استيراد أو معاينة أو قيد | قائمة أنواع البيانات وسياسة التكرار والمطابقة ومعاينة الأخطاء والاعتماد والتنفيذ والتكامل غير معتمدة |
 | SYS14 | سجل التدقيق | partial | قراءة سجل أحداث غير قابل للتعديل وتفاصيل الحدث؛ مرشحات UTC والمستخدم التاريخي ونوع الحدث والمرجع وصفحات؛ مقارنة هوية وحدث حساسة للحالة | مرشح الشاشة ورقم المستند ونطاق الفروع المستقل والتصدير وتدقيق القراءة غير منفذة؛ التاريخ اختياري للتوافق؛ المستخدم هو OIDC sub التاريخي ونوع الحدث مفتاح محفوظ دون كتالوج شاشة معتمد |
-| SYS15 | النسخ والاستعادة | not-started | — | الشاشة كاملة |
+| SYS15 | النسخ والاستعادة | partial | بطاقة تهيئة نسخة محمية بنطاق الشركة؛ لا نسخ أو استعادة أو جدولة تشغيلية | تفويض الاستعادة والتشفير والجدولة والاحتفاظ واختبار استعادة معزول غير معتمدة؛ API غير منفذ |
 | SYS16 | شروط وطرق الدفع | partial | بنية أصلية لبطاقات طرق الدفع وخطط الأقساط: الشركة والفرع والرمز والاسم والوسيلة والحساب الاختياري وأيام السماح والنسب والاستحقاق والتدقيق؛ هجرة ذرية idempotent ومراجع SQL مركبة بالشركة؛ مجموع نسب خطة معطاة يساوي 100 في Domain، ورفض EF لأي كتابة غير معتمدة | كتابة وقراءة SYS16 عبر API والبحث والتعديل والتعطيل والاستخدام وسجل التدقيق؛ اعتماد قائمة أنواع الوسائل التفصيلية وشروط إلزام الحساب، صلاحيات الفرع والحساب، ربط SAL06/PUR07/POS03 ومنع ترحيل البطاقة نقدًا؛ لا تعتبر البيانات schema-only وسيلة دفع تشغيلية |
 | SYS17 | صندوق الموافقات والتنبيهات | not-started | — | الشاشة كاملة |
 
