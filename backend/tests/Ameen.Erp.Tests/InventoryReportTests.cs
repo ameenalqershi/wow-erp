@@ -243,14 +243,23 @@ public static class InventoryReportTests
             Ensure(initial == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
         });
-        test("RPT09 OP04: print preserves selected page, full totals and scope without effects", async f =>
+        test("RPT09 OP04: print requires independent permission, records extraction and preserves totals", async f =>
         {
             var (request, posted) = await Post(f);
             var item = request.Lines[0].ItemId;
             await Reverse(f, posted, Fixture.Date.AddDays(1));
+            var limited = f.Store.All<Membership>().Single(x => x.Subject == f.Limited.Subject);
+            await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(limited.Subject,
+                new[] { Permissions.Read, Permissions.InventoryLedgerPrint }, false, new[] { f.BranchId }, limited.Version), default);
+            var reader = new Actor("rpt09-read-only");
+            await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(reader.Subject,
+                new[] { Permissions.Read }, true, Array.Empty<Guid>(), null), default);
+            var printOnly = new Actor("rpt09-print-only");
+            await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(printOnly.Subject,
+                new[] { Permissions.InventoryLedgerPrint }, true, Array.Empty<Guid>(), null), default);
             var before = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
-            var document = await f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner, Fixture.Date,
+            var document = await f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited, Fixture.Date,
                 Fixture.Date.AddDays(1), f.BranchId, request.WarehouseId, null, 1, 1, default);
             var report = document.Report;
             Ensure(report.Rows.Offset == 1 && report.Rows.TotalCount == 2 && report.InQuantity == 2 &&
@@ -260,9 +269,18 @@ public static class InventoryReportTests
                 document.WarehouseName is not null && document.ExtractedAt != default);
             await Error("branch_access_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited,
                 Fixture.Date, Fixture.Date.AddDays(1), f.OtherBranchId, null, null, 0, 1, default));
-            await Error("invalid_pagination", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner,
+            await Error("invalid_pagination", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited,
                 Fixture.Date, Fixture.Date.AddDays(1), null, null, null, 0, 201, default));
-            Ensure(before == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+            foreach (var denied in new[] { reader, printOnly })
+                await Error("permission_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, denied,
+                    Fixture.Date, Fixture.Date.AddDays(1), null, null, null, 0, 1, default));
+            var audit = f.Store.All<AuditEvent>().Single(x => x.Action == "report.rpt09.print");
+            Ensure(audit.ActorId == f.Limited.Subject && audit.ResourceId == item && audit.OccurredAt == document.ExtractedAt);
+            using var details = System.Text.Json.JsonDocument.Parse(audit.Details);
+            Ensure(details.RootElement.GetProperty("offset").GetInt32() == 1 &&
+                details.RootElement.GetProperty("totalCount").GetInt32() == 2 &&
+                details.RootElement.GetProperty("branchIds")[0].GetGuid() == f.BranchId);
+            Ensure(before == (f.Store.Count<AuditEvent>() - 1, f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
         });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
