@@ -3,14 +3,14 @@
   "screen_count": 150,
   "field_count": 2759,
   "diagram_count": 28,
-  "partially_implemented_screens": 43,
+  "partially_implemented_screens": 56,
   "complete_screens": 0,
   "field_status_counts": {
-    "implemented": 349,
+    "implemented": 403,
     "audit": 46,
     "derived": 4,
-    "partial": 248,
-    "pending": 2112
+    "partial": 324,
+    "pending": 1982
   },
   "coverage_note": "Field bindings are reviewed mappings, not proof of an end-to-end UI or production operation.",
   "screens": {
@@ -621,11 +621,11 @@
       "fields": {
         "GL14-F01": {
           "status": "partial",
-          "binding": "CompanyId: EF/SQL tenant key only"
+          "binding": "CompanyId: required tenant key with SQL company FK; no public GL14 API"
         },
         "GL14-F02": {
           "status": "partial",
-          "binding": "BranchId: nullable tenant FK only"
+          "binding": "BranchId: nullable composite (CompanyId,BranchId) SQL/EF FK; active-branch authorization remains pending"
         },
         "GL14-F03": {
           "status": "partial",
@@ -652,8 +652,8 @@
           "binding": "ApprovalRouteId: required tenant FK via SQL 028; active route validation pending"
         },
         "GL14-F09": {
-          "status": "partial",
-          "binding": "RequiresAttachment: bit only"
+          "status": "implemented",
+          "binding": "RequiresAttachment: required bool; domain create/edit and SQL 027 bit NOT NULL verified; source/API enforcement remains blocked"
         },
         "GL14-F10": {
           "status": "partial",
@@ -1738,6 +1738,198 @@
       },
       "test_file": "backend/tests/Ameen.Erp.Tests/WarehouseTests.cs; backend/tests/Ameen.Erp.Tests/WarehouseSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SchemaUpgradeIntegration.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs"
     },
+    "INV07": {
+      "api": "",
+      "implemented": "FG01 structural scope only for إذن الاستلام; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "PUR06/PUR07/IMP05 source identity, supplier, receipt tolerance, provisional cost and GRNI/source-account route remain blocked.",
+      "fields": {
+        "INV07-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.Id: generated UUID; no document API"
+        },
+        "INV07-F02": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV07-F03": {
+          "status": "partial",
+          "binding": "BranchId: required company-scoped FK"
+        },
+        "INV07-F04": {
+          "status": "partial",
+          "binding": "FiscalYearId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV08": {
+      "api": "",
+      "implemented": "FG01 structural scope only for إذن الصرف; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "Inventory valuation engine, SAL05 fulfillment, MFG03 source, purpose and account routing remain blocked.",
+      "fields": {
+        "INV08-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.Id: generated UUID; no document API"
+        },
+        "INV08-F02": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV08-F03": {
+          "status": "partial",
+          "binding": "BranchId: required company-scoped FK"
+        },
+        "INV08-F04": {
+          "status": "partial",
+          "binding": "FiscalYearId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV09": {
+      "api": "",
+      "implemented": "FG01 structural scope only for طلب التحويل; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "In-transit quantity/cost, reserve/send semantics and INV10 receiving contract remain blocked.",
+      "fields": {
+        "INV09-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.Id: generated UUID; no document API"
+        },
+        "INV09-F02": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV09-F03": {
+          "status": "partial",
+          "binding": "BranchId: required company-scoped FK"
+        },
+        "INV09-F04": {
+          "status": "partial",
+          "binding": "FiscalYearId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV10": {
+      "api": "",
+      "implemented": "FG01 structural scope only for استلام التحويل; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "INV09 sent-line and in-transit balance, damaged/shortage disposition and reconciliation remain blocked.",
+      "fields": {
+        "INV10-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.Id: generated UUID; no document API"
+        },
+        "INV10-F02": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV10-F03": {
+          "status": "partial",
+          "binding": "BranchId: required company-scoped FK"
+        },
+        "INV10-F04": {
+          "status": "partial",
+          "binding": "FiscalYearId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV12": {
+      "api": "",
+      "implemented": "FG01 structural scope only for أمر الجرد; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "Cutoff snapshot, blind-count visibility and exactly-once replay of post-cutoff movements remain blocked.",
+      "fields": {
+        "INV12-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV12-F02": {
+          "status": "partial",
+          "binding": "BranchId: optional company-scoped FK"
+        },
+        "INV12-F03": {
+          "status": "partial",
+          "binding": "StatusCode: opaque shape only; no approved lifecycle"
+        },
+        "INV12-F04": {
+          "status": "partial",
+          "binding": "WarehouseId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV13": {
+      "api": "",
+      "implemented": "FG01 structural scope only for تسوية الجرد; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "Approved INV12 count, over/short valuation and GL03 difference account remain blocked.",
+      "fields": {
+        "INV13-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.Id: generated UUID; no document API"
+        },
+        "INV13-F02": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV13-F03": {
+          "status": "partial",
+          "binding": "BranchId: required company-scoped FK"
+        },
+        "INV13-F04": {
+          "status": "partial",
+          "binding": "FiscalYearId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV14": {
+      "api": "",
+      "implemented": "FG01 structural scope only for التالف والعزل; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "INV05 quality state, quarantine-versus-destruction decision, INV08 issue and loss-account approval remain blocked.",
+      "fields": {
+        "INV14-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.Id: generated UUID; no document API"
+        },
+        "INV14-F02": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV14-F03": {
+          "status": "partial",
+          "binding": "BranchId: required company-scoped FK"
+        },
+        "INV14-F04": {
+          "status": "partial",
+          "binding": "FiscalYearId: required company-scoped FK"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
+    "INV15": {
+      "api": "",
+      "implemented": "FG01 structural scope only for إعادة تقييم التكلفة; tenant key and scoped references mapped; all EF mutations fail closed",
+      "remaining": "Approved cost-layer method, sold/remaining shares, IMP06 and GL10 remain blocked.",
+      "fields": {
+        "INV15-F01": {
+          "status": "partial",
+          "binding": "CompanyEntity.CompanyId: tenant key"
+        },
+        "INV15-F02": {
+          "status": "partial",
+          "binding": "BranchId: optional company-scoped FK"
+        },
+        "INV15-F03": {
+          "status": "partial",
+          "binding": "StatusCode: opaque shape only; no approved lifecycle"
+        },
+        "INV15-F04": {
+          "status": "partial",
+          "binding": "FromDate: SQL date; non-default only"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    },
     "INV02": {
       "api": "GET/POST /companies/{companyId}/item-groups; GET/PUT /{id}; POST /{id}/status; GET /{id}/audit-events|usage|items; GET /accounts/{id}/item-groups",
       "implemented": "شجرة مجموعات بلا دورات وربط حسابات المبيعات والمخزون والتكلفة؛ بحث وتعديل وحالة وتدقيق؛ ملخص الاستخدام المباشر والفرعي وأصنافه بصفحات مع أسباب القفل؛ حماية بنية الحساب المرتبط ومنع تعطيله مع مجموعة فعالة",
@@ -2278,105 +2470,201 @@
       },
       "test_file": "backend/tests/Ameen.Erp.Tests/CashReceiptAllocationTests.cs; backend/tests/Ameen.Erp.Tests/CashReceiptFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashReceiptSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     },
+    "CASH05": {
+      "api": "internal EF/SQL 049 only; no public HTTP API; all EF writes denied",
+      "implemented": "CASH05 schema 049: company-scoped typed cashbox/bank endpoint FKs, exact decimal(20,6)/(20,10), Draft-only guard; domain validation rejects self-transfer and validates both endpoint rates; SQL constraint also rejects same endpoint",
+      "remaining": "Approval and actor authorization; balance reservation; SYS03 period, SYS05 FX source/valuation, fee policy, GL06 posting/reversal, HTTP/JWT lifecycle and operational concurrency remain blocked",
+      "fields": {
+        "CASH05-F01": {
+          "status": "implemented",
+          "binding": "CashTransfer.Id"
+        },
+        "CASH05-F02": {
+          "status": "implemented",
+          "binding": "CompanyId"
+        },
+        "CASH05-F03": {
+          "status": "implemented",
+          "binding": "BranchId"
+        },
+        "CASH05-F04": {
+          "status": "implemented",
+          "binding": "FiscalYearId"
+        },
+        "CASH05-F05": {
+          "status": "implemented",
+          "binding": "Number (leading zeroes preserved; no SYS10 uniqueness claim)"
+        },
+        "CASH05-F06": {
+          "status": "implemented",
+          "binding": "DocumentDate"
+        },
+        "CASH05-F07": {
+          "status": "implemented",
+          "binding": "AccountingDate"
+        },
+        "CASH05-F08": {
+          "status": "implemented",
+          "binding": "CurrencyCode"
+        },
+        "CASH05-F09": {
+          "status": "implemented",
+          "binding": "ExchangeRate"
+        },
+        "CASH05-F10": {
+          "status": "implemented",
+          "binding": "Description"
+        },
+        "CASH05-F11": {
+          "status": "implemented",
+          "binding": "ExternalReference"
+        },
+        "CASH05-F12": {
+          "status": "implemented",
+          "binding": "State (Draft-only)"
+        },
+        "CASH05-F13": {
+          "status": "implemented",
+          "binding": "SourceKind + SourceAccountId + SourceCashBoxId/SourceBankAccountId"
+        },
+        "CASH05-F14": {
+          "status": "implemented",
+          "binding": "DestinationKind + DestinationAccountId + DestinationCashBoxId/DestinationBankAccountId"
+        },
+        "CASH05-F15": {
+          "status": "implemented",
+          "binding": "SourceAmount"
+        },
+        "CASH05-F16": {
+          "status": "implemented",
+          "binding": "DestinationAmount"
+        },
+        "CASH05-F17": {
+          "status": "implemented",
+          "binding": "DestinationCurrencyCode"
+        },
+        "CASH05-F18": {
+          "status": "implemented",
+          "binding": "Fee"
+        },
+        "CASH05-F19": {
+          "status": "implemented",
+          "binding": "CreatedBy"
+        },
+        "CASH05-F20": {
+          "status": "implemented",
+          "binding": "CreatedAt"
+        },
+        "CASH05-F21": {
+          "status": "implemented",
+          "binding": "Revision"
+        },
+        "CASH05-F22": {
+          "status": "implemented",
+          "binding": "LastModifiedAt"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/CashTransferValidationTests.cs; backend/tests/Ameen.Erp.Tests/CashTransferSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/CashUnauthorizedEfMutationSqlIntegration.cs"
+    },
     "CASH06": {
-      "api": "internal EF/SQL schema 039 only; no live advance/settlement API or GL posting",
-      "implemented": "بنية 23 حقلًا أصليًا لعنوان وسطور العهد والسلف التشغيلية: جداول SQL 039 وEF مع مبالغ دقيقة وسعر صرف وفحص مراجع الشركة والفرع والسنة والعملة، وتسجيل وقت/إصدار تدقيق، ومنع الكتابة تشغيلًا",
-      "remaining": "HR03 صاحب العهدة والمصروف الفعلي غير موصولين، ولا قائمة أنواع/حالات العهدة المعتمدة ولا سياسة رد النقد أو الزيادة أو تسوية ذمم GL06؛ كل EF writes محجوبة، وCASH06 API/HTTPS/JWT/Outbox/موافقات غير منفذة",
+      "api": "internal EF/SQL 039 only; no public HTTP API; all EF writes denied",
+      "implemented": "CASH06 header/settlement-line field structure, exact money/rate precision, audit metadata and default-CreatedAt rejection; domain and SQL acceptance cover original fields",
+      "remaining": "HR03 holder/expense FK and eligibility, approved advance-type catalogue, settlement/reimbursement workflow, CASH04 disbursement, SYS03/SYS07, GL06 posting/reversal and operational authorization remain unavailable",
       "fields": {
         "CASH06-F01": {
-          "status": "partial",
-          "binding": "CashAdvance.Id internal GUID only"
+          "status": "implemented",
+          "binding": "CashAdvance.Id"
         },
         "CASH06-F02": {
-          "status": "partial",
-          "binding": "CashAdvance.CompanyId tenant primary key"
+          "status": "implemented",
+          "binding": "CompanyId"
         },
         "CASH06-F03": {
-          "status": "partial",
-          "binding": "CashAdvance.BranchId tenant composite FK; operational permission pending"
+          "status": "implemented",
+          "binding": "BranchId"
         },
         "CASH06-F04": {
-          "status": "partial",
-          "binding": "CashAdvance.FiscalYearId tenant FK; fiscal closure not checked"
+          "status": "implemented",
+          "binding": "FiscalYearId"
         },
         "CASH06-F05": {
-          "status": "partial",
-          "binding": "CashAdvance.Number nvarchar(64) preserves leading zeroes; no SYS10 scope"
+          "status": "implemented",
+          "binding": "Number"
         },
         "CASH06-F06": {
-          "status": "partial",
-          "binding": "CashAdvance.DocumentDate SQL date"
+          "status": "implemented",
+          "binding": "DocumentDate"
         },
         "CASH06-F07": {
-          "status": "partial",
-          "binding": "CashAdvance.AccountingDate SQL date; not posted"
+          "status": "implemented",
+          "binding": "AccountingDate"
         },
         "CASH06-F08": {
-          "status": "partial",
-          "binding": "CashAdvance.CurrencyCode tenant composite FK"
+          "status": "implemented",
+          "binding": "CurrencyCode"
         },
         "CASH06-F09": {
-          "status": "partial",
-          "binding": "CashAdvance.ExchangeRate decimal(20,10)>0; no dated SYS05 policy"
+          "status": "implemented",
+          "binding": "ExchangeRate"
         },
         "CASH06-F10": {
-          "status": "partial",
-          "binding": "CashAdvance.Description nvarchar(1000)"
+          "status": "implemented",
+          "binding": "Description"
         },
         "CASH06-F11": {
-          "status": "partial",
-          "binding": "CashAdvance.ExternalReference nullable nvarchar(100)"
+          "status": "implemented",
+          "binding": "ExternalReference"
         },
         "CASH06-F12": {
           "status": "partial",
-          "binding": "CashAdvance.State nonempty text; approved lifecycle missing"
+          "binding": "State (unapproved state catalogue)"
         },
         "CASH06-F13": {
           "status": "partial",
-          "binding": "CashAdvance.HolderId GUID stored only; HR03 master FK unavailable"
+          "binding": "HolderId (opaque HR03 reference; no FK)"
         },
         "CASH06-F14": {
           "status": "partial",
-          "binding": "CashAdvance.AdvanceType nonempty text; approved choices unavailable"
+          "binding": "AdvanceType (text placeholder; no approved value catalogue)"
         },
         "CASH06-F15": {
-          "status": "partial",
-          "binding": "CashAdvance.Amount decimal(20,6)>0; no cash debit"
+          "status": "implemented",
+          "binding": "Amount"
         },
         "CASH06-F16": {
-          "status": "partial",
-          "binding": "CashAdvance.ExpectedSettlementDate SQL date; no workflow timing"
+          "status": "implemented",
+          "binding": "ExpectedSettlementDate"
         },
         "CASH06-F17": {
           "status": "partial",
-          "binding": "CashAdvanceLine.ExpenseReferenceId nullable GUID, no approved expense FK"
+          "binding": "CashAdvanceLine.ExpenseReferenceId (opaque HR03 reference; no FK)"
         },
         "CASH06-F18": {
           "status": "partial",
-          "binding": "CashAdvanceLine.SettlementAmount nullable decimal(20,6)>=0, no real settlement"
+          "binding": "CashAdvanceLine.SettlementAmount"
         },
         "CASH06-F19": {
           "status": "partial",
-          "binding": "CashAdvanceLine.AttachmentReference nullable nvarchar(300)"
+          "binding": "CashAdvanceLine.AttachmentReference"
         },
         "CASH06-F20": {
-          "status": "partial",
-          "binding": "CashAdvance.CreatedBy stored actor text; API actor validation pending"
+          "status": "implemented",
+          "binding": "CreatedBy"
         },
         "CASH06-F21": {
-          "status": "partial",
-          "binding": "CashAdvance.CreatedAt datetimeoffset(7) stored only"
+          "status": "implemented",
+          "binding": "CreatedAt"
         },
         "CASH06-F22": {
-          "status": "partial",
-          "binding": "CashAdvance.Revision >0 SQL, no operational edit"
+          "status": "implemented",
+          "binding": "Revision"
         },
         "CASH06-F23": {
-          "status": "partial",
-          "binding": "CashAdvance.LastModifiedAt datetimeoffset(7)>=CreatedAt, no audit workflow"
+          "status": "implemented",
+          "binding": "LastModifiedAt"
         }
       },
-      "test_file": "backend/tests/Ameen.Erp.Tests/CashAdvanceFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashAdvanceSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
+      "test_file": "backend/tests/Ameen.Erp.Tests/CashAdvanceFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashAdvanceSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/CashUnauthorizedEfMutationSqlIntegration.cs"
     },
     "CASH07": {
       "api": "internal EF/SQL schema 035 only; no cheque receipt, clearing, rejection or bank API",
@@ -2631,80 +2919,80 @@
       "test_file": "backend/tests/Ameen.Erp.Tests/ChequeMovementFoundationTests.cs; backend/tests/Ameen.Erp.Tests/ChequeMovementSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/ChequeSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     },
     "CASH10": {
-      "api": "internal EF/SQL schema 040 only; no bank statement import or reconciliation API",
-      "implemented": "بنية 17 حقلًا أصليًا لرأس ومحضر المطابقة وسطور حركات البنك والدفتر؛ SQL 040 ذرية قابلة للإعادة، ربط حساب البنك والفرع والشركة بمفاتيح مركبة، ومبالغ decimal(20,6) تشمل رصيد كشف سالبًا مشروعًا؛ EF يمنع كل كتابة حتى اعتماد ربط الحركات وسياسة الاستيراد",
-      "remaining": "CASH02 بطاقة البنك تشغيلها محجوب؛ لا مصدر حركة كشف أو حركة دفتر مثبت للربط، ولا مفتاح استيراد فريد معتمد، ولا سياسات التوزيع الجزئي والمتعدد/الفرق أو مسودة عمولة GL03 أو التفويض SYS07؛ CASH10 API/JWT/SQL transactional matching غير منفذة",
+      "api": "internal EF/SQL 040 only; no public HTTP API; all EF writes denied",
+      "implemented": "CASH10 header and reconciliation-line structural fields, company-scoped bank/branch FKs, signed statement balances with decimal precision, statement date range and audit metadata; no journal or bank movement is created",
+      "remaining": "Statement-file ingestion/deduplication, bank/ledger movement source FKs, match allocation policy, GL06 posting/reversal, SYS07/JWT and operational reconciliation remain blocked",
       "fields": {
         "CASH10-F01": {
-          "status": "partial",
-          "binding": "BankReconciliation.CompanyId tenant key"
+          "status": "implemented",
+          "binding": "CompanyId"
         },
         "CASH10-F02": {
-          "status": "partial",
-          "binding": "BankReconciliation.BranchId optional composite tenant FK; operational scope pending"
+          "status": "implemented",
+          "binding": "BranchId (nullable)"
         },
         "CASH10-F03": {
           "status": "partial",
-          "binding": "BankReconciliation.State nonempty text; lifecycle not approved"
+          "binding": "State (no approved lifecycle)"
         },
         "CASH10-F04": {
-          "status": "partial",
-          "binding": "BankReconciliation.BankAccountId composite tenant FK; bank CRUD blocked"
+          "status": "implemented",
+          "binding": "BankAccountId (company-scoped FK)"
         },
         "CASH10-F05": {
-          "status": "partial",
-          "binding": "BankReconciliation.StatementFrom SQL date"
+          "status": "implemented",
+          "binding": "StatementFrom"
         },
         "CASH10-F06": {
-          "status": "partial",
-          "binding": "BankReconciliation.StatementTo SQL date; >= StatementFrom"
+          "status": "implemented",
+          "binding": "StatementTo"
         },
         "CASH10-F07": {
-          "status": "partial",
-          "binding": "BankReconciliation.OpeningBalance signed decimal(20,6); no ledger impact"
+          "status": "implemented",
+          "binding": "OpeningBalance (signed)"
         },
         "CASH10-F08": {
-          "status": "partial",
-          "binding": "BankReconciliation.ClosingBalance signed decimal(20,6); no ledger impact"
+          "status": "implemented",
+          "binding": "ClosingBalance (signed)"
         },
         "CASH10-F09": {
-          "status": "partial",
-          "binding": "BankReconciliation.StatementFileId nullable nvarchar(300); source import not approved"
+          "status": "implemented",
+          "binding": "StatementFileId (optional text; no import workflow)"
         },
         "CASH10-F10": {
           "status": "partial",
-          "binding": "BankReconciliationLine.BankMovementId GUID only; bank movement master FK unavailable"
+          "binding": "BankReconciliationLine.BankMovementId (no source FK)"
         },
         "CASH10-F11": {
           "status": "partial",
-          "binding": "BankReconciliationLine.LedgerMovementId optional GUID only; source FK unavailable"
+          "binding": "BankReconciliationLine.LedgerMovementId (no source FK)"
         },
         "CASH10-F12": {
-          "status": "partial",
-          "binding": "BankReconciliationLine.MatchedAmount decimal(20,6)>=0; allocation policy pending"
+          "status": "implemented",
+          "binding": "BankReconciliationLine.MatchedAmount"
         },
         "CASH10-F13": {
-          "status": "partial",
-          "binding": "BankReconciliationLine.VarianceReason optional nvarchar(1000); final variance not calculated"
+          "status": "implemented",
+          "binding": "BankReconciliationLine.VarianceReason"
         },
         "CASH10-F14": {
-          "status": "partial",
-          "binding": "BankReconciliation.CreatedBy text stored only; actor validation pending"
+          "status": "implemented",
+          "binding": "CreatedBy"
         },
         "CASH10-F15": {
-          "status": "partial",
-          "binding": "BankReconciliation.CreatedAt datetimeoffset(7) stored only"
+          "status": "implemented",
+          "binding": "CreatedAt"
         },
         "CASH10-F16": {
-          "status": "partial",
-          "binding": "BankReconciliation.Revision>0; no operational edit"
+          "status": "implemented",
+          "binding": "Revision"
         },
         "CASH10-F17": {
-          "status": "partial",
-          "binding": "BankReconciliation.LastModifiedAt>=CreatedAt; no operational update"
+          "status": "implemented",
+          "binding": "LastModifiedAt"
         }
       },
-      "test_file": "backend/tests/Ameen.Erp.Tests/BankReconciliationFoundationTests.cs; backend/tests/Ameen.Erp.Tests/BankReconciliationSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
+      "test_file": "backend/tests/Ameen.Erp.Tests/BankReconciliationFoundationTests.cs; backend/tests/Ameen.Erp.Tests/BankReconciliationSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/CashUnauthorizedEfMutationSqlIntegration.cs"
     },
     "CASH11": {
       "api": "internal EF/SQL schema 033 only; no CASH11 public API or balance adjustment",
@@ -2765,6 +3053,118 @@
         }
       },
       "test_file": "backend/tests/Ameen.Erp.Tests/CashCountFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashCountSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
+    },
+    "PUR01": {
+      "api": "internal SQL/EF 049 only; no authorized PUR01 HTTP API",
+      "implemented": "Supplier schema/field values, tenant-scoped account/currency references, unique code and audit structure; EF writes blocked until reviewed",
+      "remaining": "Separate reviewer for bank beneficiary/IBAN changes, country-dependent registration/IBAN rules, partner scope/permissions and safe create/edit/status/usage API with SQL/JWT/HTTP acceptance, PUR03/PUR11 posting",
+      "fields": {
+        "PUR01-F01": {
+          "status": "partial",
+          "binding": "Supplier.Id (server GUID)"
+        },
+        "PUR01-F02": {
+          "status": "partial",
+          "binding": "Supplier.CompanyId (tenant key)"
+        },
+        "PUR01-F03": {
+          "status": "partial",
+          "binding": "Supplier.Code nvarchar(32) (unique company code)"
+        },
+        "PUR01-F04": {
+          "status": "partial",
+          "binding": "Supplier.Name nvarchar(200)"
+        },
+        "PUR01-F05": {
+          "status": "partial",
+          "binding": "Supplier.EnglishName nullable nvarchar(200)"
+        },
+        "PUR01-F06": {
+          "status": "partial",
+          "binding": "Supplier.IsActive stored only, no status action"
+        },
+        "PUR01-F07": {
+          "status": "partial",
+          "binding": "Supplier.Notes nullable nvarchar(2000)"
+        },
+        "PUR01-F08": {
+          "status": "partial",
+          "binding": "Supplier.LegalName nvarchar(200)"
+        },
+        "PUR01-F09": {
+          "status": "partial",
+          "binding": "Supplier.ControlAccountId tenant FK"
+        },
+        "PUR01-F10": {
+          "status": "partial",
+          "binding": "Supplier.TransactionCurrencyId tenant FK"
+        },
+        "PUR01-F11": {
+          "status": "partial",
+          "binding": "Supplier.PaymentTerms required nvarchar(2000)"
+        },
+        "PUR01-F12": {
+          "status": "partial",
+          "binding": "Supplier.DueDays int nonnegative"
+        },
+        "PUR01-F13": {
+          "status": "partial",
+          "binding": "Supplier.TaxNumber nullable; conditional country policy unavailable"
+        },
+        "PUR01-F14": {
+          "status": "partial",
+          "binding": "Supplier.CountryId GUID required; country catalogue FK unavailable"
+        },
+        "PUR01-F15": {
+          "status": "partial",
+          "binding": "Supplier.BankBeneficiary nullable; separate reviewer unavailable"
+        },
+        "PUR01-F16": {
+          "status": "partial",
+          "binding": "Supplier.Iban nullable; country-specific validation unavailable"
+        },
+        "PUR01-F17": {
+          "status": "partial",
+          "binding": "Supplier.CreatedBy actor stored (no API)"
+        },
+        "PUR01-F18": {
+          "status": "partial",
+          "binding": "Supplier.CreatedAt datetimeoffset(7) required"
+        },
+        "PUR01-F19": {
+          "status": "partial",
+          "binding": "Supplier.Revision initialized at 1 (no edit API)"
+        },
+        "PUR01-F20": {
+          "status": "partial",
+          "binding": "Supplier.LastModifiedAt initialized at creation (no edit API)"
+        },
+        "PUR01-F21": {
+          "status": "partial",
+          "binding": "Supplier.City required nvarchar(200)"
+        },
+        "PUR01-F22": {
+          "status": "partial",
+          "binding": "Supplier.District nullable nvarchar(200)"
+        },
+        "PUR01-F23": {
+          "status": "partial",
+          "binding": "Supplier.Street required nvarchar(200)"
+        },
+        "PUR01-F24": {
+          "status": "partial",
+          "binding": "Supplier.BuildingNumber nullable nvarchar(32)"
+        },
+        "PUR01-F25": {
+          "status": "partial",
+          "binding": "Supplier.PostalCode nullable nvarchar(32)"
+        },
+        "PUR01-F26": {
+          "status": "partial",
+          "binding": "Supplier.AdditionalNumber nullable nvarchar(32)"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/SupplierFoundationTests.cs; backend/tests/Ameen.Erp.Tests/SupplierSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     },
     "RPT01": {
       "api": "GET /companies/{companyId}/reports/trial-balance",
@@ -2945,6 +3345,230 @@
         }
       },
       "test_file": "backend/tests/Ameen.Erp.Tests/InventoryReportTests.cs; backend/tests/Ameen.Erp.Tests/InventoryOpeningSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs"
+    },
+    "SAL02": {
+      "api": "No public API; SQL 050 + EF mapping only; EF writes blocked",
+      "implemented": "SalesPriceLists/SalesPriceListLines tenant tables, branch/currency and item-unit-pair FKs, same-company CustomerGroups.PriceListId FK, decimal(20,6) and audit",
+      "remaining": "Customer/group/general priority and assignment source, overlapping effective periods, discount authorization, customer-specific pricing, invoice integration and public API",
+      "fields": {
+        "SAL02-F01": {
+          "status": "partial",
+          "binding": "CompanyId: tenant FK Companies"
+        },
+        "SAL02-F02": {
+          "status": "partial",
+          "binding": "BranchId: nullable same-company FK Branches"
+        },
+        "SAL02-F03": {
+          "status": "partial",
+          "binding": "Status: opaque nvarchar(64); no state graph"
+        },
+        "SAL02-F04": {
+          "status": "partial",
+          "binding": "Name: required nvarchar(200)"
+        },
+        "SAL02-F05": {
+          "status": "partial",
+          "binding": "CurrencyId: same-company FK Currencies"
+        },
+        "SAL02-F06": {
+          "status": "partial",
+          "binding": "EffectiveFrom: SQL date"
+        },
+        "SAL02-F07": {
+          "status": "partial",
+          "binding": "EffectiveTo: nullable SQL date; not before EffectiveFrom"
+        },
+        "SAL02-F08": {
+          "status": "partial",
+          "binding": "IncludesTax: bit snapshot only; no tax calculation"
+        },
+        "SAL02-F09": {
+          "status": "partial",
+          "binding": "ItemId: part of same-company ItemUnit FK"
+        },
+        "SAL02-F10": {
+          "status": "partial",
+          "binding": "UnitId: part of same-company ItemUnit FK; rejects mismatched pair"
+        },
+        "SAL02-F11": {
+          "status": "partial",
+          "binding": "Price: decimal(20,6), nonnegative"
+        },
+        "SAL02-F12": {
+          "status": "partial",
+          "binding": "DiscountLimit: decimal(20,6), nonnegative; policy/upper bound pending"
+        },
+        "SAL02-F13": {
+          "status": "partial",
+          "binding": "QuantityThreshold: nullable decimal(20,6), nonnegative"
+        },
+        "SAL02-F14": {
+          "status": "partial",
+          "binding": "CreatedBy: stored only; no actor API"
+        },
+        "SAL02-F15": {
+          "status": "partial",
+          "binding": "CreatedAt: datetimeoffset(7)"
+        },
+        "SAL02-F16": {
+          "status": "partial",
+          "binding": "Revision: positive SQL integer; no edit workflow"
+        },
+        "SAL02-F17": {
+          "status": "partial",
+          "binding": "LastModifiedAt: datetimeoffset(7) >= CreatedAt"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/SalesPriceListFoundationTests.cs; backend/tests/Ameen.Erp.Tests/SalesPriceListSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
+    },
+    "SAL09": {
+      "api": "No public API; SQL 049 + EF mapping only; EF writes blocked",
+      "implemented": "SalesRepresentatives tenant table, unique company/code, audit, custody-account tenant FK; opaque employee/supervisor/commission IDs retained without fictional FKs",
+      "remaining": "HR03 employee provider, supervisor target semantics, SAL10 commission policy, customer-scope authorization, active-reference checks and public API/SQL workflow acceptance",
+      "fields": {
+        "SAL09-F01": {
+          "status": "partial",
+          "binding": "SalesRepresentative.Id: tenant PK"
+        },
+        "SAL09-F02": {
+          "status": "partial",
+          "binding": "CompanyId: FK Companies"
+        },
+        "SAL09-F03": {
+          "status": "partial",
+          "binding": "Code: nvarchar(32), unique per company"
+        },
+        "SAL09-F04": {
+          "status": "partial",
+          "binding": "Name: nvarchar(200)"
+        },
+        "SAL09-F05": {
+          "status": "partial",
+          "binding": "EnglishName: nullable nvarchar(200)"
+        },
+        "SAL09-F06": {
+          "status": "partial",
+          "binding": "IsActive: stored only"
+        },
+        "SAL09-F07": {
+          "status": "partial",
+          "binding": "Notes: nullable nvarchar(2000)"
+        },
+        "SAL09-F08": {
+          "status": "partial",
+          "binding": "EmployeeId: opaque nullable GUID; HR03 missing, no FK"
+        },
+        "SAL09-F09": {
+          "status": "partial",
+          "binding": "Region: required nvarchar(200)"
+        },
+        "SAL09-F10": {
+          "status": "partial",
+          "binding": "SupervisorId: opaque nullable GUID; target semantics unapproved"
+        },
+        "SAL09-F11": {
+          "status": "partial",
+          "binding": "CustodyAccountId: nullable composite FK Accounts within company"
+        },
+        "SAL09-F12": {
+          "status": "partial",
+          "binding": "CommissionPolicyId: opaque nullable GUID; SAL10 missing, no FK"
+        },
+        "SAL09-F13": {
+          "status": "partial",
+          "binding": "CreatedBy: nvarchar(200), no actor API"
+        },
+        "SAL09-F14": {
+          "status": "partial",
+          "binding": "CreatedAt: datetimeoffset(7)"
+        },
+        "SAL09-F15": {
+          "status": "partial",
+          "binding": "Revision: positive SQL integer; no edit workflow"
+        },
+        "SAL09-F16": {
+          "status": "partial",
+          "binding": "LastModifiedAt: datetimeoffset(7) >= CreatedAt"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/SalesRepresentativeFoundationTests.cs; backend/tests/Ameen.Erp.Tests/SalesReferenceSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
+    },
+    "SAL15": {
+      "api": "No public API; SQL 049 + EF mapping only; EF writes blocked",
+      "implemented": "CustomerGroups tenant table, unique company/code, same-company parent, price-list, currency, payment-term and control-account FKs, decimal(20,6) credit limit and audit",
+      "remaining": "Active-reference checks, SYS16 operational payment terms, credit override/precedence policy, customer assignment, historical invoice handling, permissions and public API",
+      "fields": {
+        "SAL15-F01": {
+          "status": "partial",
+          "binding": "CustomerGroup.Id: tenant PK"
+        },
+        "SAL15-F02": {
+          "status": "partial",
+          "binding": "CompanyId: FK Companies"
+        },
+        "SAL15-F03": {
+          "status": "partial",
+          "binding": "Code: nvarchar(32), unique per company"
+        },
+        "SAL15-F04": {
+          "status": "partial",
+          "binding": "Name: nvarchar(200)"
+        },
+        "SAL15-F05": {
+          "status": "partial",
+          "binding": "EnglishName: nullable nvarchar(200)"
+        },
+        "SAL15-F06": {
+          "status": "partial",
+          "binding": "IsActive: stored only"
+        },
+        "SAL15-F07": {
+          "status": "partial",
+          "binding": "Notes: nullable nvarchar(2000)"
+        },
+        "SAL15-F08": {
+          "status": "partial",
+          "binding": "ParentGroupId: nullable same-company self FK"
+        },
+        "SAL15-F09": {
+          "status": "partial",
+          "binding": "PriceListId: required same-company FK SalesPriceLists; priority/active checks pending"
+        },
+        "SAL15-F10": {
+          "status": "partial",
+          "binding": "DefaultCreditLimit: decimal(20,6), nonnegative"
+        },
+        "SAL15-F11": {
+          "status": "partial",
+          "binding": "CreditCurrencyId: same-company FK Currencies; active check pending"
+        },
+        "SAL15-F12": {
+          "status": "partial",
+          "binding": "PaymentTermId: same-company FK PaymentTerms; SYS16 writes blocked"
+        },
+        "SAL15-F13": {
+          "status": "partial",
+          "binding": "ControlAccountId: same-company FK Accounts; active check pending"
+        },
+        "SAL15-F14": {
+          "status": "partial",
+          "binding": "CreatedBy: nvarchar(200), no actor API"
+        },
+        "SAL15-F15": {
+          "status": "partial",
+          "binding": "CreatedAt: datetimeoffset(7)"
+        },
+        "SAL15-F16": {
+          "status": "partial",
+          "binding": "Revision: positive SQL integer; no edit workflow"
+        },
+        "SAL15-F17": {
+          "status": "partial",
+          "binding": "LastModifiedAt: datetimeoffset(7) >= CreatedAt"
+        }
+      },
+      "test_file": "backend/tests/Ameen.Erp.Tests/CustomerGroupFoundationTests.cs; backend/tests/Ameen.Erp.Tests/SalesReferenceSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/SqlIntegration.cs"
     }
   }
 }

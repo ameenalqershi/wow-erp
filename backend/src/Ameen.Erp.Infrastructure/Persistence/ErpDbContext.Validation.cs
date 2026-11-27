@@ -8,12 +8,65 @@ public sealed partial class ErpDbContext
     private void ValidateChanges()
     {
         ChangeTracker.DetectChanges();
+        // PUR01 foundation only. Bank beneficiary changes require a different
+        // reviewer and tax/IBAN requirements depend on country-specific rules.
+        // Preserve a fail-closed boundary for all insert/edit/delete operations.
+        Check.That(!ChangeTracker.Entries<Supplier>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "supplier_policy_unavailable",
+            "حفظ بطاقة المورد محجوب حتى اعتماد مراجعة البنك وقواعد الدولة والتفويض.",
+            ErrorKind.Conflict);
+        // INV16-01 is a field foundation, not an approved movement/GRNI policy.
+        // No direction catalogue, counterpart/cost-center decision or route
+        // activation contract has been signed off. All EF mutations fail closed.
+        Check.That(!ChangeTracker.Entries<InventoryMovementReason>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "inventory_movement_reason_policy_unavailable",
+            "حفظ أسباب الحركات محجوب حتى اعتماد الاتجاه والحساب المقابل ومسار الموافقة.",
+            ErrorKind.Conflict);
+        // INV07/08/09/10/12/13/14/15-FG01 are field-scope foundations only.
+        // Source, lifecycle, availability, valuation, approval and posting contracts are not accepted.
+        Check.That(!ChangeTracker.Entries<InventoryReceiptHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryIssueHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryTransferHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryTransferReceiptHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryCountHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryAdjustmentHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryDamageHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<InventoryRevaluationHeader>().Any(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "inventory_document_foundation_policy_unavailable",
+            "كتابة مستندات المخزون محجوبة حتى اعتماد المصدر والحركة والتقييم ومسار الموافقة.",
+            ErrorKind.Conflict);
         // SAL01-01 structural only. Customer classification (SAL15), country
         // identity rules, credit override authorization and SAL09 are unavailable.
         Check.That(!ChangeTracker.Entries<Customer>().Any(e =>
             e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
             "customer_policy_unavailable",
             "حفظ بطاقة العميل محجوب حتى اكتمال التصنيف والهوية والتفويض والائتمان.",
+            ErrorKind.Conflict);
+
+        // SAL09/SAL15 are schema-only. HR03, SAL10, SAL02, SYS16 and
+        // customer-scope/credit authorization are not operationally approved.
+        // Deny direct EF writes as well as public writes until those providers exist.
+        Check.That(!ChangeTracker.Entries<SalesRepresentative>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "sales_representative_policy_unavailable",
+            "حفظ المندوب محجوب حتى اعتماد الموظف والمشرف والعمولة ونطاق العملاء والصلاحيات.",
+            ErrorKind.Conflict);
+        Check.That(!ChangeTracker.Entries<CustomerGroup>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "customer_group_policy_unavailable",
+            "حفظ مجموعة العملاء محجوب حتى اعتماد قائمة الأسعار وشروط الدفع والائتمان والتفويض.",
+            ErrorKind.Conflict);
+
+        // SAL02 price-list records are structural only. Priority, overlap,
+        // discount approval and invoice-price resolution are not yet approved.
+        Check.That(!ChangeTracker.Entries<SalesPriceList>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted) &&
+            !ChangeTracker.Entries<SalesPriceListLine>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "sales_price_list_policy_unavailable",
+            "حفظ قائمة الأسعار محجوب حتى اعتماد الأولوية وتعارض الصلاحية وحدود الخصم والتفويض.",
             ErrorKind.Conflict);
 
         // CASH09 transition list, authorized actor, cheque clearing, bank
@@ -49,6 +102,13 @@ public sealed partial class ErpDbContext
             e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
             "cash_advance_policy_unavailable",
             "لا يمكن حفظ عهدة أو تسوية قبل اعتماد صاحب العهدة وربط المصروف ودورة الصرف.",
+            ErrorKind.Conflict);
+        // CASH05 transfer endpoints and FX/fee posting are not approved.
+        // Even a domain Draft cannot be saved by direct EF callers.
+        Check.That(!ChangeTracker.Entries<CashTransfer>().Any(e =>
+            e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted),
+            "cash_transfer_policy_unavailable",
+            "حفظ التحويل محجوب حتى اعتماد الحسابين والتفويض وفروق الصرف والعمولة.",
             ErrorKind.Conflict);
         // CASH10 is structural only. No approved statement import dedup,
         // bank/ledger movement binding, matching policy or GL journal exists.

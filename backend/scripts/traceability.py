@@ -123,7 +123,7 @@ screen("GL14", "internal EF model and SQL 027 only; no public GL14 API",
        "SYS09 route schema and GL14 tenant FK exist but roles, route activation and policy validation are blocked; create/edit/disable/search/usage/audit APIs, GL03 binding, runtime enforcement of manual/automatic origin and reversal separation, and full acceptance remain unimplemented",
        {})
 for n, binding in {
-    1:"CompanyId: EF/SQL tenant key only", 2:"BranchId: nullable tenant FK only",
+    1:"CompanyId: required tenant key with SQL company FK; no public GL14 API", 2:"BranchId: nullable composite (CompanyId,BranchId) SQL/EF FK; active-branch authorization remains pending",
     3:"IsActive: persisted server state only", 4:"Code: nvarchar(32) unique per company only",
     5:"Name: nvarchar(200) only", 6:"Origin: Manual/Automatic enum plus domain-only MatchesSource guard; unknown hydrated values fail closed in domain acceptance; no GL03 enforcement",
     7:"NumberSeriesId: tenant FK; active/scope checks pending", 8:"ApprovalRouteId: required tenant FK via SQL 028; active route validation pending",
@@ -132,6 +132,13 @@ for n, binding in {
     13:"LastModifiedAt: datetimeoffset only"
 }.items():
     MAP["GL14"]["fields"][f"GL14-F{n:02}"] = dict(status="partial", binding=binding)
+# GL14-F09 is a self-contained data field: its required boolean is represented
+# in the domain aggregate and SQL 027 as NOT NULL bit. This does not enable
+# attachment enforcement at a source endpoint; that remains GL14-C01/API work.
+MAP["GL14"]["fields"]["GL14-F09"] = dict(
+    status="implemented",
+    binding="RequiresAttachment: required bool; domain create/edit and SQL 027 bit NOT NULL verified; source/API enforcement remains blocked"
+)
 MAP["GL14"]["test_file"] = "backend/tests/Ameen.Erp.Tests/JournalDocumentTypeFoundationTests.cs; backend/tests/Ameen.Erp.Tests/JournalDocumentTypeSqlIntegration.cs"
 
 screen("GL13", "GET/POST /companies/{companyId}/financial-mappings; GET/PUT /{id}; POST /status|review; GET /usage|audit-events; GET /reviews/{id}",
@@ -253,6 +260,25 @@ screen("INV01", "GET/POST /companies/{companyId}/warehouses; GET/PUT /{id}; POST
        {1: "Warehouse.Id", 2: "CompanyId", 3: "Code", 4: "Name", 5: "EnglishName", 6: "IsActive", 7: "Notes", 8: "BranchId", 9: "KeeperMembershipId", 10: "Type", 11: "InventoryAccountId", 12: "TrackLocations", 13: "Locations[].Code", 14: "Locations[].Description", 17: "Revision"},
        [(15, "AuditEvent.ActorId: warehouse.created"), (16, "AuditEvent.OccurredAt: warehouse.created"), (18, "AuditEvent.OccurredAt: warehouse.edited / warehouse.status-changed")])
 MAP["INV01"]["fields"]["INV01-F09"] = dict(status="partial", binding="KeeperMembershipId: initial active ERP membership with branch scope")
+
+# INV07/08/09/10/12/13/14/15 FG01: structural-only header scope.
+# No public API or EF writes until each source/lifecycle policy is accepted.
+for code, title, fields, remaining in [
+    ("INV07", "إذن الاستلام", {1:"CompanyEntity.Id: generated UUID; no document API", 2:"CompanyEntity.CompanyId: tenant key", 3:"BranchId: required company-scoped FK", 4:"FiscalYearId: required company-scoped FK"}, "PUR06/PUR07/IMP05 source identity, supplier, receipt tolerance, provisional cost and GRNI/source-account route remain blocked."),
+    ("INV08", "إذن الصرف", {1:"CompanyEntity.Id: generated UUID; no document API", 2:"CompanyEntity.CompanyId: tenant key", 3:"BranchId: required company-scoped FK", 4:"FiscalYearId: required company-scoped FK"}, "Inventory valuation engine, SAL05 fulfillment, MFG03 source, purpose and account routing remain blocked."),
+    ("INV09", "طلب التحويل", {1:"CompanyEntity.Id: generated UUID; no document API", 2:"CompanyEntity.CompanyId: tenant key", 3:"BranchId: required company-scoped FK", 4:"FiscalYearId: required company-scoped FK"}, "In-transit quantity/cost, reserve/send semantics and INV10 receiving contract remain blocked."),
+    ("INV10", "استلام التحويل", {1:"CompanyEntity.Id: generated UUID; no document API", 2:"CompanyEntity.CompanyId: tenant key", 3:"BranchId: required company-scoped FK", 4:"FiscalYearId: required company-scoped FK"}, "INV09 sent-line and in-transit balance, damaged/shortage disposition and reconciliation remain blocked."),
+    ("INV12", "أمر الجرد", {1:"CompanyEntity.CompanyId: tenant key", 2:"BranchId: optional company-scoped FK", 3:"StatusCode: opaque shape only; no approved lifecycle", 4:"WarehouseId: required company-scoped FK"}, "Cutoff snapshot, blind-count visibility and exactly-once replay of post-cutoff movements remain blocked."),
+    ("INV13", "تسوية الجرد", {1:"CompanyEntity.Id: generated UUID; no document API", 2:"CompanyEntity.CompanyId: tenant key", 3:"BranchId: required company-scoped FK", 4:"FiscalYearId: required company-scoped FK"}, "Approved INV12 count, over/short valuation and GL03 difference account remain blocked."),
+    ("INV14", "التالف والعزل", {1:"CompanyEntity.Id: generated UUID; no document API", 2:"CompanyEntity.CompanyId: tenant key", 3:"BranchId: required company-scoped FK", 4:"FiscalYearId: required company-scoped FK"}, "INV05 quality state, quarantine-versus-destruction decision, INV08 issue and loss-account approval remain blocked."),
+    ("INV15", "إعادة تقييم التكلفة", {1:"CompanyEntity.CompanyId: tenant key", 2:"BranchId: optional company-scoped FK", 3:"StatusCode: opaque shape only; no approved lifecycle", 4:"FromDate: SQL date; non-default only"}, "Approved cost-layer method, sold/remaining shares, IMP06 and GL10 remain blocked."),
+]:
+    screen(code, "", f"FG01 structural scope only for {title}; tenant key and scoped references mapped; all EF mutations fail closed",
+           remaining, fields)
+    MAP[code]["test_file"] = "backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationTests.cs; backend/tests/Ameen.Erp.Tests/InventoryDocumentFoundationSqlIntegration.cs"
+    for item in MAP[code]["fields"].values():
+        item["status"] = "partial"
+
 MAP["INV01"]["fields"]["INV01-F10"] = dict(status="partial", binding="Warehouse.Type: Standard/Quarantine initial inferred scope")
 MAP["INV01"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in ["WarehouseTests.cs", "WarehouseSqlIntegration.cs", "SchemaUpgradeIntegration.cs", "HostedApiIntegration.cs"])
 screen("INV02", "GET/POST /companies/{companyId}/item-groups; GET/PUT /{id}; POST /{id}/status; GET /{id}/audit-events|usage|items; GET /accounts/{id}/item-groups",
@@ -364,6 +390,31 @@ MAP["CASH03"]["test_file"] = "; ".join(
     "backend/tests/Ameen.Erp.Tests/" + name for name in
     ["CashReceiptAllocationTests.cs", "CashReceiptFoundationTests.cs",
      "CashReceiptSqlIntegration.cs", "SqlIntegration.cs"])
+
+screen("CASH05", "internal EF/SQL 049 only; no transfer/approval/GL endpoint",
+       "بنية تحويل بين صندوق وبنك أو صناديق/بنوك بمرجعين ذوي نوع صريح؛ 22 حقلاً مصدرها التحليل؛ أسعار الطرفين ودقة المبالغ والعمولة؛ مفاتيح SQL مركبة للشركة مع أعمدة FK تقنية مشروطة؛ ترقية SQL 049 ذرية قابلة للإعادة؛ EF يحجب كل كتابة وأي مستند جديد يجب أن يكون Draft",
+       "لم ينفذ اعتماد/ترحيل أو حجز رصيد أو FX/عمولة أو اختيار حسابات GL06، ولا SYS07 والتأكد من المصدر الفعال وHTTP/JWT/API والتزامن؛ الحقول بنيوية محجوبة حتى اعتماد السياسات",
+       {})
+for n, binding in {
+    1:"CashTransfer.Id / tenant key", 2:"CashTransfer.CompanyId / tenant key",
+    3:"CashTransfer.BranchId / scoped branch FK", 4:"CashTransfer.FiscalYearId / scoped year FK",
+    5:"CashTransfer.Number / document metadata no SYS10 allocator",
+    6:"CashTransfer.DocumentDate", 7:"CashTransfer.AccountingDate",
+    8:"CashTransfer.CurrencyCode / tenant FK", 9:"CashTransfer.ExchangeRate decimal(20.10)",
+    10:"CashTransfer.Description", 11:"CashTransfer.ExternalReference",
+    12:"CashTransfer.State Draft-only guard",
+    13:"CashTransfer.SourceKind/SourceAccountId / scoped typed FK aliases",
+    14:"CashTransfer.DestinationKind/DestinationAccountId / scoped typed FK aliases",
+    15:"CashTransfer.SourceAmount decimal(20.6)",
+    16:"CashTransfer.DestinationAmount decimal(20.6)",
+    17:"CashTransfer.DestinationCurrencyCode / scoped FK",
+    18:"CashTransfer.Fee decimal(20.6) optional", 19:"CashTransfer.CreatedBy",
+    20:"CashTransfer.CreatedAt", 21:"CashTransfer.Revision",
+    22:"CashTransfer.LastModifiedAt"
+}.items():
+    MAP["CASH05"]["fields"][f"CASH05-F{n:02}"] = dict(status="partial", binding=binding)
+MAP["CASH05"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in
+    ["CashTransferValidationTests.cs", "CashTransferSqlIntegration.cs", "SqlIntegration.cs"])
 
 screen("CASH06", "internal EF/SQL schema 039 only; no live advance/settlement API or GL posting",
        "بنية 23 حقلًا أصليًا لعنوان وسطور العهد والسلف التشغيلية: جداول SQL 039 وEF مع مبالغ دقيقة وسعر صرف وفحص مراجع الشركة والفرع والسنة والعملة، وتسجيل وقت/إصدار تدقيق، ومنع الكتابة تشغيلًا",
@@ -522,6 +573,34 @@ for n, binding in {
 MAP["CASH11"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name
     for name in ["CashCountFoundationTests.cs", "CashCountSqlIntegration.cs", "SqlIntegration.cs"])
 
+# PUR01 supplier-card structural foundation; all bindings are partial because
+# operational EF writes and bank review/country rules remain fail-closed.
+screen("PUR01", "internal SQL/EF 049 only; no authorized PUR01 HTTP API",
+       "Supplier schema/field values, tenant-scoped account/currency references, unique code and audit structure; EF writes blocked until reviewed",
+       "Separate reviewer for bank beneficiary/IBAN changes, country-dependent registration/IBAN rules, partner scope/permissions and safe create/edit/status/usage API with SQL/JWT/HTTP acceptance, PUR03/PUR11 posting",
+       {})
+for n, binding in {
+    1: "Supplier.Id (server GUID)", 2: "Supplier.CompanyId (tenant key)",
+    3: "Supplier.Code nvarchar(32) (unique company code)", 4: "Supplier.Name nvarchar(200)",
+    5: "Supplier.EnglishName nullable nvarchar(200)", 6: "Supplier.IsActive stored only, no status action",
+    7: "Supplier.Notes nullable nvarchar(2000)", 8: "Supplier.LegalName nvarchar(200)",
+    9: "Supplier.ControlAccountId tenant FK", 10: "Supplier.TransactionCurrencyId tenant FK",
+    11: "Supplier.PaymentTerms required nvarchar(2000)", 12: "Supplier.DueDays int nonnegative",
+    13: "Supplier.TaxNumber nullable; conditional country policy unavailable",
+    14: "Supplier.CountryId GUID required; country catalogue FK unavailable",
+    15: "Supplier.BankBeneficiary nullable; separate reviewer unavailable",
+    16: "Supplier.Iban nullable; country-specific validation unavailable",
+    17: "Supplier.CreatedBy actor stored (no API)", 18: "Supplier.CreatedAt datetimeoffset(7) required",
+    19: "Supplier.Revision initialized at 1 (no edit API)",
+    20: "Supplier.LastModifiedAt initialized at creation (no edit API)",
+    21: "Supplier.City required nvarchar(200)", 22: "Supplier.District nullable nvarchar(200)",
+    23: "Supplier.Street required nvarchar(200)", 24: "Supplier.BuildingNumber nullable nvarchar(32)",
+    25: "Supplier.PostalCode nullable nvarchar(32)", 26: "Supplier.AdditionalNumber nullable nvarchar(32)",
+}.items():
+    MAP["PUR01"]["fields"][f"PUR01-F{n:02}"] = dict(status="partial", binding=binding)
+MAP["PUR01"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in
+    ["SupplierFoundationTests.cs", "SupplierSqlIntegration.cs", "SqlIntegration.cs"])
+
 screen("RPT01", "GET /companies/{companyId}/reports/trial-balance",
        "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج", "طرق عرض العملات ومستوى التفصيل والطباعة والتصدير وتحسين أحجام كبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth)", 10: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 11: "query.showZero"})
@@ -578,6 +657,35 @@ for code, n, binding, status in [
 ]:
     MAP[code]["fields"][f"{code}-F{n:02}"] = dict(status=status, binding=binding)
 
+# SAL02 price-list header/line persistence is structural; pricing priority,
+# overlap arbitration and discount approval are deliberately not implemented.
+screen("SAL02", "No public API; SQL 050 + EF mapping only; EF writes blocked",
+       "SalesPriceLists/SalesPriceListLines tenant tables, branch/currency and item-unit-pair FKs, same-company CustomerGroups.PriceListId FK, decimal(20,6) and audit",
+       "Customer/group/general priority and assignment source, overlapping effective periods, discount authorization, customer-specific pricing, invoice integration and public API",
+       {1:"CompanyId: tenant FK Companies",2:"BranchId: nullable same-company FK Branches",3:"Status: opaque nvarchar(64); no state graph",4:"Name: required nvarchar(200)",5:"CurrencyId: same-company FK Currencies",6:"EffectiveFrom: SQL date",7:"EffectiveTo: nullable SQL date; not before EffectiveFrom",8:"IncludesTax: bit snapshot only; no tax calculation",9:"ItemId: part of same-company ItemUnit FK",10:"UnitId: part of same-company ItemUnit FK; rejects mismatched pair",11:"Price: decimal(20,6), nonnegative",12:"DiscountLimit: decimal(20,6), nonnegative; policy/upper bound pending",13:"QuantityThreshold: nullable decimal(20,6), nonnegative",14:"CreatedBy: stored only; no actor API",15:"CreatedAt: datetimeoffset(7)",16:"Revision: positive SQL integer; no edit workflow",17:"LastModifiedAt: datetimeoffset(7) >= CreatedAt"})
+for n in range(1,18):
+    MAP["SAL02"]["fields"][f"SAL02-F{n:02}"]["status"] = "partial"
+MAP["SAL02"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name for name in ["SalesPriceListFoundationTests.cs","SalesPriceListSqlIntegration.cs","SqlIntegration.cs"])
+
+# SAL09/SAL15 are persisted structurally only. These mappings deliberately
+# remain partial because HR03/SAL10/SYS16 and customer-scope policies
+# are not available; no public write API is implied by the SQL/EF schema.
+screen("SAL09", "No public API; SQL 049 + EF mapping only; EF writes blocked",
+       "SalesRepresentatives tenant table, unique company/code, audit, custody-account tenant FK; opaque employee/supervisor/commission IDs retained without fictional FKs",
+       "HR03 employee provider, supervisor target semantics, SAL10 commission policy, customer-scope authorization, active-reference checks and public API/SQL workflow acceptance",
+       {1:"SalesRepresentative.Id: tenant PK",2:"CompanyId: FK Companies",3:"Code: nvarchar(32), unique per company",4:"Name: nvarchar(200)",5:"EnglishName: nullable nvarchar(200)",6:"IsActive: stored only",7:"Notes: nullable nvarchar(2000)",8:"EmployeeId: opaque nullable GUID; HR03 missing, no FK",9:"Region: required nvarchar(200)",10:"SupervisorId: opaque nullable GUID; target semantics unapproved",11:"CustodyAccountId: nullable composite FK Accounts within company",12:"CommissionPolicyId: opaque nullable GUID; SAL10 missing, no FK",13:"CreatedBy: nvarchar(200), no actor API",14:"CreatedAt: datetimeoffset(7)",15:"Revision: positive SQL integer; no edit workflow",16:"LastModifiedAt: datetimeoffset(7) >= CreatedAt"})
+for n in range(1,17):
+    MAP["SAL09"]["fields"][f"SAL09-F{n:02}"]["status"] = "partial"
+MAP["SAL09"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name for name in ["SalesRepresentativeFoundationTests.cs","SalesReferenceSqlIntegration.cs","SqlIntegration.cs"])
+
+screen("SAL15", "No public API; SQL 049 + EF mapping only; EF writes blocked",
+       "CustomerGroups tenant table, unique company/code, same-company parent, price-list, currency, payment-term and control-account FKs, decimal(20,6) credit limit and audit",
+       "Active-reference checks, SYS16 operational payment terms, credit override/precedence policy, customer assignment, historical invoice handling, permissions and public API",
+       {1:"CustomerGroup.Id: tenant PK",2:"CompanyId: FK Companies",3:"Code: nvarchar(32), unique per company",4:"Name: nvarchar(200)",5:"EnglishName: nullable nvarchar(200)",6:"IsActive: stored only",7:"Notes: nullable nvarchar(2000)",8:"ParentGroupId: nullable same-company self FK",9:"PriceListId: required same-company FK SalesPriceLists; priority/active checks pending",10:"DefaultCreditLimit: decimal(20,6), nonnegative",11:"CreditCurrencyId: same-company FK Currencies; active check pending",12:"PaymentTermId: same-company FK PaymentTerms; SYS16 writes blocked",13:"ControlAccountId: same-company FK Accounts; active check pending",14:"CreatedBy: nvarchar(200), no actor API",15:"CreatedAt: datetimeoffset(7)",16:"Revision: positive SQL integer; no edit workflow",17:"LastModifiedAt: datetimeoffset(7) >= CreatedAt"})
+for n in range(1,18):
+    MAP["SAL15"]["fields"][f"SAL15-F{n:02}"]["status"] = "partial"
+MAP["SAL15"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name for name in ["CustomerGroupFoundationTests.cs","SalesReferenceSqlIntegration.cs","SqlIntegration.cs"])
+
 RULES = {
     "BR01": ("manual-journal", "Decimal واتزان دقيق؛ رفض فقدان الدقة؛ فروق التقريب تحتاج سطرًا صريحًا", "Program.cs: BR01 / Wire contract"),
     "BR02": ("partial", "شركة وفرع وحساب ومركز وعملة وسعر ووحدة ومجموعة وصنف؛ مخازن ومواقع؛ لا أطراف أو ضرائب بعد", "Program.cs: BR02; SqlIntegration.cs: company isolation"),
@@ -604,6 +712,33 @@ def csv_text(headers, rows):
     return stream.getvalue()
 
 
+
+# CASH05/06/10 are deliberately schema-only. A mapped field means the
+# original field is represented and tested in the structural model; it does
+# NOT mean that the financial workflow or EF writes are operational.
+screen("CASH05", "internal EF/SQL 049 only; no public HTTP API; all EF writes denied",
+       "CASH05 schema 049: company-scoped typed cashbox/bank endpoint FKs, exact decimal(20,6)/(20,10), Draft-only guard; domain validation rejects self-transfer and validates both endpoint rates; SQL constraint also rejects same endpoint",
+       "Approval and actor authorization; balance reservation; SYS03 period, SYS05 FX source/valuation, fee policy, GL06 posting/reversal, HTTP/JWT lifecycle and operational concurrency remain blocked",
+       {1:"CashTransfer.Id",2:"CompanyId",3:"BranchId",4:"FiscalYearId",5:"Number (leading zeroes preserved; no SYS10 uniqueness claim)",6:"DocumentDate",7:"AccountingDate",8:"CurrencyCode",9:"ExchangeRate",10:"Description",11:"ExternalReference",12:"State (Draft-only)",13:"SourceKind + SourceAccountId + SourceCashBoxId/SourceBankAccountId",14:"DestinationKind + DestinationAccountId + DestinationCashBoxId/DestinationBankAccountId",15:"SourceAmount",16:"DestinationAmount",17:"DestinationCurrencyCode",18:"Fee",19:"CreatedBy",20:"CreatedAt",21:"Revision",22:"LastModifiedAt"})
+MAP["CASH05"]["test_file"] = "backend/tests/Ameen.Erp.Tests/CashTransferValidationTests.cs; backend/tests/Ameen.Erp.Tests/CashTransferSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/CashUnauthorizedEfMutationSqlIntegration.cs"
+
+screen("CASH06", "internal EF/SQL 039 only; no public HTTP API; all EF writes denied",
+       "CASH06 header/settlement-line field structure, exact money/rate precision, audit metadata and default-CreatedAt rejection; domain and SQL acceptance cover original fields",
+       "HR03 holder/expense FK and eligibility, approved advance-type catalogue, settlement/reimbursement workflow, CASH04 disbursement, SYS03/SYS07, GL06 posting/reversal and operational authorization remain unavailable",
+       {1:"CashAdvance.Id",2:"CompanyId",3:"BranchId",4:"FiscalYearId",5:"Number",6:"DocumentDate",7:"AccountingDate",8:"CurrencyCode",9:"ExchangeRate",10:"Description",11:"ExternalReference",12:"State (unapproved state catalogue)",13:"HolderId (opaque HR03 reference; no FK)",14:"AdvanceType (text placeholder; no approved value catalogue)",15:"Amount",16:"ExpectedSettlementDate",17:"CashAdvanceLine.ExpenseReferenceId (opaque HR03 reference; no FK)",18:"CashAdvanceLine.SettlementAmount",19:"CashAdvanceLine.AttachmentReference",20:"CreatedBy",21:"CreatedAt",22:"Revision",23:"LastModifiedAt"})
+for field in ("CASH06-F12","CASH06-F13","CASH06-F14","CASH06-F17","CASH06-F18","CASH06-F19"):
+    MAP["CASH06"]["fields"][field]["status"] = "partial"
+MAP["CASH06"]["test_file"] = "backend/tests/Ameen.Erp.Tests/CashAdvanceFoundationTests.cs; backend/tests/Ameen.Erp.Tests/CashAdvanceSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/CashUnauthorizedEfMutationSqlIntegration.cs"
+
+screen("CASH10", "internal EF/SQL 040 only; no public HTTP API; all EF writes denied",
+       "CASH10 header and reconciliation-line structural fields, company-scoped bank/branch FKs, signed statement balances with decimal precision, statement date range and audit metadata; no journal or bank movement is created",
+       "Statement-file ingestion/deduplication, bank/ledger movement source FKs, match allocation policy, GL06 posting/reversal, SYS07/JWT and operational reconciliation remain blocked",
+       {1:"CompanyId",2:"BranchId (nullable)",3:"State (no approved lifecycle)",4:"BankAccountId (company-scoped FK)",5:"StatementFrom",6:"StatementTo",7:"OpeningBalance (signed)",8:"ClosingBalance (signed)",9:"StatementFileId (optional text; no import workflow)",10:"BankReconciliationLine.BankMovementId (no source FK)",11:"BankReconciliationLine.LedgerMovementId (no source FK)",12:"BankReconciliationLine.MatchedAmount",13:"BankReconciliationLine.VarianceReason",14:"CreatedBy",15:"CreatedAt",16:"Revision",17:"LastModifiedAt"})
+for field in ("CASH10-F03","CASH10-F10","CASH10-F11"):
+    MAP["CASH10"]["fields"][field]["status"] = "partial"
+MAP["CASH10"]["test_file"] = "backend/tests/Ameen.Erp.Tests/BankReconciliationFoundationTests.cs; backend/tests/Ameen.Erp.Tests/BankReconciliationSqlIntegration.cs; backend/tests/Ameen.Erp.Tests/CashUnauthorizedEfMutationSqlIntegration.cs"
+
+
 def generate():
     screens = json.loads((ANALYSIS / "data/screens.json").read_text())
     diagrams = json.loads((ANALYSIS / "data/diagrams.json").read_text())
@@ -626,8 +761,9 @@ def generate():
         "module-GL": "دليل حسابات مع تحرير مضبوط وطبيعة صريحة وتدقيق؛ أستاذ وقوالب وتوليد مسودات؛ باقي وظائف GL غير مكتملة",
         "module-INV": "وحدات INV03 ومجموعات INV02 وبطاقات INV04 وتحويلات وباركود وحماية المراجع وعرض الاستخدام؛ بطاقات مخازن INV01 ومواقعها؛ الحركات والتكلفة والتتبع التشغيلي لم تنفذ",
         "module-COST": "شجرة مراكز ومسؤول وتعديل وتعطيل؛ نوع المركز والموازنات والتوزيعات لم تكتمل",
-        "module-CASH": "CASH01 بطاقة صندوق بيانات وواجهات؛ CASH02 أساس بنكي بنيوي للحقول مع حظر كتابته؛ CASH03 أساس سند قبض بنيوي فقط مع حظر كتابته؛ CASH07/CASH08 أساس شيكات بنيوي فقط مع حظر كتابتها؛ CASH09 أساس حركة شيك بنيوي مع منع جميع الكتابات؛ CASH11 أساس جرد بنيوي فقط مع حظر الكتابة؛ الأرصدة والسندات والشيكات والمطابقة لم تنفذ",
+        "module-CASH": "CASH01 بطاقة صندوق بيانات وواجهات؛ CASH02 أساس بنكي بنيوي مع حظر كتابته؛ CASH03 أساس سند قبض بنيوي مع حظر كتابته؛ CASH05 أساس تحويل typed endpoints مع ضابط منع التحويل الذاتي وتوثيق سعري الطرفين دون تشغيل؛ CASH06 أساس عهدة بنيوي مع حظر الكتابة؛ CASH07/CASH08 أساس شيكات بنيوي مع حظر الكتابة؛ CASH09 أساس حركة شيك بنيوي مع منع جميع الكتابات؛ CASH10 أساس مطابقة بنكي بنيوي مع حظر الكتابة؛ CASH11 أساس جرد بنيوي مع حظر الكتابة؛ CASH04 محجوب لاعتماد مرجع المستفيد والفاتورة/الحساب ومصدر الدفع؛ الأرصدة والسندات والشيكات والمطابقة التشغيلية لم تنفذ",
         "module-RPT": "14 شاشة و164 حقلاً؛ تنفيذ جزئي في RPT01 وRPT02 وRPT08 وRPT09. المطابقة: docs/backend/rpt-diagram-audit.md",
+        "module-PUR": "PUR01 أساس بطاقة المورد البنيوي فقط دون دورة مورد أو حفظ مفوض؛ بقية شاشات المشتريات غير منفذة",
         "system-map": "أساس SYS وGL وبعض COST وINV وRPT؛ بقية الأقسام لم تبدأ",
         "data-model": "شركات وفروع وحسابات وفترات وقيود وسطـور وتدقيق وOutbox؛ امتداد قوالب دورية بإصدار وتوليد ووحدات ومجموعات وITEM/ITEM_UNIT وWAREHOUSE/Locations؛ DOCUMENT والدفاتر المساعدة لاحقًا",
         "document-lifecycle": "الدورة منفذة للقيد اليدوي؛ الرفض يعيد Draft مع سبب وتاريخ في التدقيق؛ محاولة الترحيل ليست حالة دائمة",

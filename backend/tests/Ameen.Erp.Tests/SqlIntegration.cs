@@ -52,6 +52,12 @@ public static class SqlIntegration
                 await FiscalYearAuditSqlIntegration.Upgrade(db);
                 await MembershipAuditSqlIntegration.Upgrade(db);
                 await CustomerSqlIntegration.Upgrade(db);
+                await SalesReferenceSqlIntegration.Upgrade(db);
+                await SalesPriceListSqlIntegration.Upgrade(db);
+                await SupplierSqlIntegration.Upgrade(db);
+                await InventoryMovementReasonSqlIntegration.Upgrade(db);
+                await InventoryDocumentFoundationSqlIntegration.Upgrade(db);
+                await CashTransferSqlIntegration.Upgrade(db);
             }
             await f.Initialize();
             await using (var fiscalAuditDb = f.Context())
@@ -60,8 +66,19 @@ public static class SqlIntegration
                 await MembershipAuditSqlIntegration.Guard(membershipAuditDb, f.CompanyId, f.Owner.Subject);
             await using (var customerDb = f.Context())
                 await CustomerSqlIntegration.Guard(customerDb, f.CompanyId, f.EquityId, f.Owner.Subject);
+            await using (var supplierDb = f.Context())
+                await SupplierSqlIntegration.Guard(supplierDb, f.CompanyId, f.EquityId, f.Owner.Subject);
+            await using (var reasonDb = f.Context())
+                await InventoryMovementReasonSqlIntegration.Guard(reasonDb, f.CompanyId, f.BranchId, f.EquityId, f.Owner.Subject);
+            await using (var inventoryDocDb = f.Context())
+                await InventoryDocumentFoundationSqlIntegration.Guard(inventoryDocDb, f.CompanyId, f.BranchId, f.CashId);
             await using (var paymentSchemaDb = f.Context())
                 await PaymentTermSqlIntegration.Guard(paymentSchemaDb, f.CompanyId, f.BranchId, f.CashId);
+            Guid priceListId;
+            await using (var salesPriceListDb = f.Context())
+                priceListId = await SalesPriceListSqlIntegration.Guard(salesPriceListDb, f.CompanyId, f.BranchId, f.Owner);
+            await using (var salesReferenceDb = f.Context())
+                await SalesReferenceSqlIntegration.Guard(salesReferenceDb, f.CompanyId, f.EquityId, priceListId, f.Owner.Subject);
             await using (var advanceSchemaDb = f.Context())
                 await CashAdvanceSqlIntegration.Guard(advanceSchemaDb, f.CompanyId, f.BranchId);
             await using (var reconDb = f.Context())
@@ -106,6 +123,9 @@ public static class SqlIntegration
             }
             await using (var cashGuardDb = f.Context())
                 await CashBoxSqlIntegration.Guard(cashGuardDb, f.CompanyId, cashReceipts[0].ResourceId, f.EquityId);
+            await using (var transferDb = f.Context())
+                await CashTransferSqlIntegration.Guard(transferDb, f.CompanyId,
+                    f.BranchId, cashReceipts[0].ResourceId, f.CashId, f.Owner.Subject);
             await Expect("cashbox_account_already_linked", () =>
                 f.Call(s => s.CashBox.CreateCashBox(f.CompanyId, f.Owner, Fixture.Key(),
                     cashRequest with { Code = "SQL-CASH-2" }, default)));
