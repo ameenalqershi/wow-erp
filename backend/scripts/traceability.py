@@ -526,7 +526,7 @@ screen("RPT01", "GET /companies/{companyId}/reports/trial-balance",
        "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج", "طرق عرض العملات ومستوى التفصيل والطباعة والتصدير وتحسين أحجام كبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth)", 10: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 11: "query.showZero"})
 screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
-       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة", "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
+       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع", "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 11: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 12: "query.externalReference (exact case-sensitive match)"})
 
 screen("RPT08", "GET /companies/{companyId}/reports/inventory-balances",

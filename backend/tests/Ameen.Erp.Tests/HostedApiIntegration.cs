@@ -406,7 +406,35 @@ public static class HostedApiIntegration
                 using (var deniedLedger = await client.GetAsync(gl03LedgerPath))
                     Ensure(deniedLedger.StatusCode == HttpStatusCode.Forbidden,
                         "GL03-T01 account ledger leaked outside the JWT tenant");
+                using (var deniedSource = await client.GetAsync(path + $"/{receipt.ResourceId}"))
+                    Ensure(deniedSource.StatusCode == HttpStatusCode.Forbidden,
+                        "RPT02-OP03 source journal leaked to a nonmember JWT");
+                Authenticate(Token("sql-clerk"));
+                var rpt02SourceJournalId = receipt.ResourceId;
+                var sourceReader = "rpt02-source-reader";
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(sourceReader, new[] { Permissions.Read }, false,
+                        new[] { journalRequest.BranchId }, null));
+                Authenticate(Token(sourceReader));
+                using (var scopedLedger = await client.GetAsync(gl03LedgerPath))
+                using (var data = JsonDocument.Parse(await scopedLedger.Content.ReadAsStringAsync()))
+                {
+                    scopedLedger.EnsureSuccessStatusCode();
+                    var row = data.RootElement.GetProperty("entries").GetProperty("items").EnumerateArray().Single();
+                    using var scopedSource = await client.GetAsync(path + $"/{row.GetProperty("journalId").GetGuid()}");
+                    scopedSource.EnsureSuccessStatusCode();
+                    using var source = JsonDocument.Parse(await scopedSource.Content.ReadAsStringAsync());
+                    var line = source.RootElement.GetProperty("lines").EnumerateArray().Single(x =>
+                        x.GetProperty("position").GetInt32() == row.GetProperty("position").GetInt32());
+                    Ensure(line.GetProperty("accountId").GetGuid() == journalRequest.Lines[0].AccountId &&
+                        line.GetProperty("functionalDebit").GetString() == row.GetProperty("debit").GetString(),
+                        "RPT02-OP03 authorized branch read did not return the exact source line");
+                }
+                using (var missingSource = await client.GetAsync(path + $"/{Guid.NewGuid()}"))
+                    Ensure(missingSource.StatusCode == HttpStatusCode.NotFound,
+                        "RPT02-OP03 nonexistent source did not return 404");
                 Authenticate(Token("sql-approver"));
+                Console.WriteLine("  HOST PASS RPT02-OP03 source drill-through under scoped JWT, missing and nonmember denial");
                 Console.WriteLine("  HOST PASS GL03-T01 balanced posted journal with exact account-ledger reference and JWT tenant denial");
 
                 foreach (var reportPath in new[] { "trial-balance", $"accounts/{journalRequest.Lines[0].AccountId}/ledger" })
@@ -944,6 +972,14 @@ public static class HostedApiIntegration
                 Console.WriteLine("  HOST PASS INV02 usage and disabled item references with paging over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV04 item lifecycle, barcode search, exact conversion, unit usage and audit over HTTPS/JWT/SQL");
                 var warehouseBranch = await Command(client, $"/api/v1/companies/{companyId}/branches", new CreateBranchRequest("HTTP-WH-B", "فرع مخزن", "مدينة", "عنوان"));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("rpt02-other-branch-reader", new[] { Permissions.Read }, false,
+                        new[] { warehouseBranch.ResourceId }, null));
+                Authenticate(Token("rpt02-other-branch-reader"));
+                using (var otherBranchSource = await client.GetAsync(path + $"/{rpt02SourceJournalId}"))
+                    Ensure(otherBranchSource.StatusCode == HttpStatusCode.Forbidden,
+                        "RPT02-OP03 source journal leaked across branches");
+                Authenticate(Token("sql-owner"));
                 var warehouseAccount = await Command(client, $"/api/v1/companies/{companyId}/accounts", new CreateAccountRequest("HTTP-WH-A", "مخزون", AccountType.Asset, null, true, true, false, null, NormalBalance.Debit));
                 Guid warehouseKeeper;
                 using (var response = await client.GetAsync($"/api/v1/companies/{companyId}/memberships?limit=200"))
