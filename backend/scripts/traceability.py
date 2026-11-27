@@ -530,8 +530,8 @@ screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger;
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 11: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 12: "query.externalReference (exact case-sensitive match)"})
 
 screen("RPT08", "GET /companies/{companyId}/reports/inventory-balances",
-       "رصيد وحركة وقيمة افتتاح المخزون وعكسه حسب المخزن والصنف والهوية والرقابة؛ إجماليات قبل الصفحات وعزل الفروع",
-       "افتتاح وعكسه فقط؛ لا حجز/متاح/طريق/عزل ولا محرك تكلفة أو مطابقة رقابة آلية عامة؛ لا عملة عرض أو طباعة أو تصدير؛ حتى تاريخ يستخدم to نفسه؛ التجميع ثابت",
+       "رصيد وحركة وقيمة افتتاح المخزون وعكسه حسب المخزن والصنف والهوية والرقابة؛ إجماليات قبل الصفحات وعزل الفروع؛ معاينة HTML للصفحة بصلاحية مستقلة وأثر تدقيق",
+       "افتتاح وعكسه فقط؛ لا حجز/متاح/طريق/عزل ولا محرك تكلفة أو مطابقة رقابة آلية عامة؛ لا عملة عرض أو تصدير؛ حتى تاريخ يستخدم to نفسه؛ التجميع ثابت",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 10: "query.warehouseId", 11: "query.groupId (current item group)", 12: "query.itemId"})
 screen("RPT09", "GET /companies/{companyId}/reports/items/{itemId}/ledger",
        "حركة افتتاح وعكس بوحدة أساسية ورصيد جارٍ عبر الصفحات؛ وحدات وتكلفة سطور المصدر التاريخية وروابط المستند والقيد؛ ترتيب تاريخ الأثر ووقت الترحيل؛ رفض عدم تطابق مصدر صف الحركة المعروض؛ معاينة HTML للصفحة وتصدير XLSX لكامل النطاق المحدود بصلاحيات مستقلة وأثر تدقيق",
