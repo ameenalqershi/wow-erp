@@ -200,6 +200,14 @@ public static class InventoryOpeningSqlIntegration
         await using (var db = Context()) await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [StockMovements] SET [Value]=[Value]+1 WHERE [OpeningId]={r.ResourceId}");
         var corrupt = await Call(s => s.PeriodClose.PreviewPeriodClose(cid, periodId, reviewer, 0, 10, default));
         Ensure(!corrupt.Checks.Single(x => x.Code == "inventory_openings_reconciled").Passed, "Close ignored mismatched stock valuation");
+        try
+        {
+            await Call(s => s.Report.InventoryLedger(cid, item.ResourceId, writer, Fixture.Date, Fixture.Date,
+                branch, wh.ResourceId, null, 0, 1, default));
+            throw new Exception("RPT09 displayed a movement with inconsistent historical value");
+        }
+        catch (BusinessException e) when (e.Code == "inventory_ledger_source_mismatch" && e.Kind == ErrorKind.Conflict) { }
+
         await using (var db = Context())
         {
             await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE [StockMovements] SET [Value]=[Value]-1 WHERE [OpeningId]={r.ResourceId}");

@@ -251,6 +251,73 @@ public static class FoundationSqlIntegration
         Ensure(historyIds.SequenceEqual(centerHistory.Items.Select(x => x.Id)), "COST01 SQL audit paging unstable");
         await Error("reference_not_found", () => Call(s => s.CostCenter.ListCostCenterAudit(otherId, child.Id, owner, 0, 10, default)));
         Console.WriteLine("  SQL PASS COST01-FG04/OP06 server timestamps, numeric revision, audit paging, rollback and tenant isolation");
+        // Separate card: two competing status writes may commit only one revision.
+        var statusCard = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FND-STATUS", "مركز حالة", journalRequest.BranchId, root.ResourceId, EnglishName: "Center Ω", Notes: "ملاحظات"), default));
+        var statusBefore = await Call(s => s.CostCenter.GetCostCenter(cid, statusCard.ResourceId, owner, default));
+        Ensure(statusBefore.IsActive && statusBefore.ParentId == root.ResourceId && statusBefore.EnglishName == "Center Ω" &&
+            statusBefore.Notes == "ملاحظات", "COST01 FG02 persisted metadata differs");
+        var statusRequest = new SetCostCenterStatusRequest(statusBefore.Version, false, "تعطيل");
+        var statusKeys = new[] { Fixture.Key(), Fixture.Key() };
+        async Task<(string Code, CommandReceipt? Receipt)> TryDisable(string key)
+        {
+            try { return ("accepted", await Call(s => s.CostCenter.SetCostCenterStatus(cid, statusBefore.Id, owner, key, statusRequest, default))); }
+            catch (BusinessException ex) { return (ex.Code, null); }
+        }
+        var statusOutcomes = await Task.WhenAll(statusKeys.Select(TryDisable));
+        Ensure(statusOutcomes.Count(x => x.Code == "accepted") == 1 &&
+            statusOutcomes.Count(x => x.Code == "version_conflict") == 1, "COST01 status concurrency differs");
+        var acceptedIndex = Array.FindIndex(statusOutcomes, x => x.Code == "accepted");
+        Ensure(await Call(s => s.CostCenter.SetCostCenterStatus(cid, statusBefore.Id, owner, statusKeys[acceptedIndex], statusRequest, default))
+            == statusOutcomes[acceptedIndex].Receipt, "COST01 status replay differs");
+        await using (var statusDb = Context())
+        {
+            var saved = await statusDb.Set<CostCenter>().SingleAsync(x => x.CompanyId == cid && x.Id == statusBefore.Id);
+            Ensure(!saved.IsActive && saved.Revision == 2 && saved.ParentId == root.ResourceId &&
+                saved.EnglishName == statusBefore.EnglishName && saved.Notes == statusBefore.Notes,
+                "COST01 status changed metadata or incremented revision twice");
+            Ensure(await statusDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == cid && x.ResourceId == saved.Id) == 2 &&
+                !await statusDb.Set<IdempotencyRecord>().AnyAsync(x => x.CompanyId == cid && x.Key == statusKeys[1 - acceptedIndex]),
+                "COST01 rejected status persisted audit or receipt");
+        }
+        Console.WriteLine("  SQL PASS COST01-FG02/OP04 metadata roundtrip, concurrent status rejection and exact replay");
+        var searchRoot = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FIND-00", "بحث تجريبي", null), default));
+        var searchLocal = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FIND-01", "بحث تجريبي", journalRequest.BranchId, searchRoot.ResourceId, EnglishName: "Find English"), default));
+        var searchInactive = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FIND-02", "بحث تجريبي", journalRequest.BranchId, searchRoot.ResourceId), default));
+        await Call(s => s.CostCenter.SetCostCenterStatus(cid, searchInactive.ResourceId, owner, Fixture.Key(),
+            new(searchInactive.Version, false, "تعطيل"), default));
+        var searchFirst = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "بحث تجريبي", journalRequest.BranchId, null, true, 0, 1, default));
+        var searchSecond = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "FIND-", journalRequest.BranchId, null, true, 1, 1, default));
+        var searchDisabled = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, null, journalRequest.BranchId, searchRoot.ResourceId, false, 0, 10, default));
+        Ensure(searchFirst.TotalCount == 2 && searchSecond.TotalCount == 2 &&
+            searchFirst.Items.Single().Id == searchRoot.ResourceId && searchSecond.Items.Single().Id == searchLocal.ResourceId &&
+            searchDisabled.TotalCount == 1 && searchDisabled.Items.Single().Id == searchInactive.ResourceId,
+            "COST01 search SQL filter or paging differs");
+        Ensure((await Call(s => s.CostCenter.GetCostCenter(cid, searchLocal.ResourceId, owner, default))).Version == searchLocal.Version &&
+            (await Call(s => s.CostCenter.ListCostCenterAudit(cid, searchLocal.ResourceId, owner, 0, 10, default))).TotalCount == 1,
+            "COST01 search changed version or audit");
+        // All cards and memberships below are synthetic integration fixtures.
+        var secondSearchBranch = await Call(s => s.Branch.CreateBranch(cid, owner, Fixture.Key(),
+            new("FIND-BR", "فرع البحث", "مدينة", "عنوان"), default));
+        var scopedSearchActor = new Actor("cost-search-reader");
+        await Call(s => s.Membership.GrantMembership(cid, owner, Fixture.Key(),
+            new(scopedSearchActor.Subject, new[] { Permissions.Read }, false, new[] { secondSearchBranch.ResourceId }, null), default));
+        var scopedSearch = await Call(s => s.CostCenter.SearchCostCenters(cid, scopedSearchActor, "FIND-", null, null, null, 0, 10, default));
+        Ensure(scopedSearch.TotalCount == 1 && scopedSearch.Items.Single().Id == searchRoot.ResourceId,
+            "COST01 scoped search must return only the general center");
+        await Error("branch_access_denied", () => Call(s => s.CostCenter.SearchCostCenters(cid, scopedSearchActor, null, journalRequest.BranchId, null, null, 0, 10, default)));
+        await Error("branch_access_denied", () => Call(s => s.CostCenter.SearchCostCenters(cid, scopedSearchActor, null, null, searchLocal.ResourceId, null, 0, 10, default)));
+        await Call(s => s.CostCenter.CreateCostCenter(otherId, owner, Fixture.Key(),
+            new("FIND-01", "بحث تجريبي", null), default));
+        var tenantSearch = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "FIND-", null, null, null, 0, 10, default));
+        Ensure(tenantSearch.TotalCount == 3 && tenantSearch.Items.All(x => x.CompanyId == cid),
+            "COST01 search company partition differs");
+        await Error("permission_denied", () => Call(s => s.CostCenter.SearchCostCenters(otherId, scopedSearchActor, null, null, null, null, 0, 10, default)));
+        Console.WriteLine("  SQL PASS COST01-OP01 company and branch search authorization");
+        Console.WriteLine("  SQL PASS COST01-OP01 Unicode search and filtered paging");
         Console.WriteLine("  SQL PASS COST01 tenant FKs and SYS04/COST01 status writes under runtime role");
     }
     private static void Ensure(bool condition, string message) { if (!condition) throw new Exception(message); }

@@ -53,6 +53,35 @@ public static class CostCenterTests
             await Error("inactive_parent_center", () => Create(f, "NEW", null, root.ResourceId));
             root = await Status(f, root, true); await Status(f, child, true);
         });
+        test("COST01-FG02/OP04: optional metadata, explicit state and rollback", async f =>
+        {
+            var parent = await Create(f, "META-PARENT", null);
+            var child = await Create(f, "META-CHILD", f.BranchId, parent.ResourceId);
+            var initial = await Get(f, child);
+            Ensure(initial.EnglishName is null && initial.Notes is null && initial.IsActive &&
+                initial.ParentId == parent.ResourceId);
+            var edited = await f.Service.CostCenter.EditCostCenter(f.CompanyId, initial.Id, f.Owner, Fixture.Key(),
+                Edit(initial) with { EnglishName = "Center Ω", Notes = "ملاحظات", ParentId = null }, default);
+            var before = await Get(f, edited);
+            Ensure(before.EnglishName == "Center Ω" && before.Notes == "ملاحظات" && before.ParentId is null && before.IsActive);
+            var key = Fixture.Key();
+            var beforeVersion = before.Version;
+            var beforeRevision = before.Revision;
+            var status = new SetCostCenterStatusRequest(beforeVersion, false, "تعطيل");
+            var auditBefore = (await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, before.Id, f.Owner, 0, 10, default)).TotalCount;
+            f.Store.FailBeforeCommit = true;
+            try { await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, key, status, default); throw new Exception("Expected rollback"); }
+            catch (IOException) { }
+            Ensure((await Get(f, edited)).Version == beforeVersion && (await Get(f, edited)).IsActive);
+            var disabled = await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, key, status, default);
+            Ensure(await f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, key, status, default) == disabled);
+            await Error("version_conflict", () => f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Owner, Fixture.Key(), status, default));
+            await Error("permission_denied", () => f.Service.CostCenter.SetCostCenterStatus(f.CompanyId, before.Id, f.Limited, Fixture.Key(), new(disabled.Version, true, "تفعيل"), default));
+            var after = await Get(f, disabled);
+            Ensure(!after.IsActive && after.Revision == beforeRevision + 1 && after.EnglishName == before.EnglishName &&
+                after.Notes == before.Notes && after.ParentId == before.ParentId &&
+                (await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, before.Id, f.Owner, 0, 10, default)).TotalCount == auditBefore + 1);
+        });
         test("COST01: usage in cancelled journals locks own and ancestor structure", async f =>
         {
             var root = await Create(f, "ROOT", null); var child = await Create(f, "CHILD", f.BranchId, root.ResourceId);
@@ -93,6 +122,22 @@ public static class CostCenterTests
             await Error("branch_access_denied", () => f.Service.CostCenter.GetCostCenter(f.CompanyId, other.ResourceId, f.Limited, default));
             await Error("branch_access_denied", () => f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Limited, null, null, other.ResourceId, null, 0, 10, default));
             await Error("all_branches_required", () => f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, global.ResourceId, f.Limited, 0, 10, default));
+        });
+        test("COST01-OP01: search filters and deterministic pages", async f =>
+        {
+            var root = await Create(f, "FIND-00", null);
+            var child = await Create(f, "FIND-01", f.BranchId, root.ResourceId);
+            var inactive = await Create(f, "FIND-02", f.BranchId, root.ResourceId);
+            await Status(f, inactive, false);
+            var first = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, " FIND ", null, null, true, 0, 1, default);
+            var next = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, "FIND", null, null, true, 1, 1, default);
+            Ensure(first.TotalCount == 2 && next.TotalCount == 2 && first.Items.Single().Id == root.ResourceId &&
+                next.Items.Single().Id == child.ResourceId);
+            var children = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, null, f.BranchId, root.ResourceId, false, 0, 10, default);
+            Ensure(children.TotalCount == 1 && children.Items.Single().Id == inactive.ResourceId);
+            await Error("invalid_pagination", () => f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, null, null, null, null, -1, 10, default));
+            await Error("search_too_long", () => f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, new string('A', 101), null, null, null, 0, 10, default));
+            Ensure((await Get(f, child)).Version == child.Version);
         });
         test("COST01: same-key edit replays, stale version fails and rollback keeps revision", async f =>
         {

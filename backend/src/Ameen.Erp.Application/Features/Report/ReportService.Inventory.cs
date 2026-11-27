@@ -43,6 +43,11 @@ public sealed partial class ReportService
             rows.Sum(x => x.OpeningValue), rows.Sum(x => x.InValue), rows.Sum(x => x.OutValue), rows.Sum(x => x.ClosingValue),
             new(rows.Skip(offset).Take(limit).ToArray(), rows.Length, offset, limit));
     }
+    private static bool ValidHistoricalConversion(InventoryOpeningLine line)
+    {
+        try { return checked(line.Quantity * line.FactorToBase) == line.BaseQuantity; }
+        catch (OverflowException) { return false; }
+    }
     public async Task<InventoryLedgerResult> InventoryLedger(Guid cid, Guid itemId, Actor actor, DateOnly from, DateOnly to,
         Guid? branchId, Guid? warehouseId, string? identityNumber, int offset, int limit, CancellationToken ct, Guid[]? branchIds = null)
     {
@@ -67,9 +72,22 @@ public sealed partial class ReportService
         foreach (var movement in page)
         {
             quantity += movement.BaseQuantity; value += movement.Value;
-            var source = sources[movement.OpeningId];
+            // Never present a source document whose historical units disagree with its recorded movement.
+            // The write-side reconciliation protects all stored movements; this is an additional read guard for displayed rows.
+            if (!sources.TryGetValue(movement.OpeningId, out var source))
+                throw new BusinessException("inventory_ledger_source_mismatch", "مصدر حركة المخزون غير متطابق.", ErrorKind.Conflict);
             var lines = source.Lines.Where(x => x.ItemId == itemId && x.IdentityId == movement.IdentityId).OrderBy(x => x.Position).ToArray();
             var sign = movement.ReversesMovementId is null ? 1 : -1;
+            Check.That(source.State == InventoryOpeningState.Posted && source.JournalId == movement.JournalId &&
+                source.BranchId == movement.BranchId && source.WarehouseId == movement.WarehouseId &&
+                source.AccountingDate == movement.AccountingDate && source.CurrencyCode == movement.CurrencyCode &&
+                source.InventoryAccountId == movement.InventoryAccountId &&
+                (source.ReversesOpeningId is not null) == (sign == -1) && lines.Length > 0 &&
+                lines.All(x => x.Quantity > 0 && x.FactorToBase > 0 && x.BaseQuantity > 0 && x.UnitCost >= 0 && x.Value >= 0 &&
+                    ValidHistoricalConversion(x)) &&
+                movement.BaseQuantity == sign * lines.Sum(x => x.BaseQuantity) &&
+                movement.Value == sign * lines.Sum(x => x.Value),
+                "inventory_ledger_source_mismatch", "وحدات وقيم المستند لا تطابق حركة المخزون المسجلة.", ErrorKind.Conflict);
             rows.Add(new(movement.Id, source.Id, source.Number, movement.JournalId, movement.ReversesMovementId, movement.BranchId,
                 movement.WarehouseId, movement.IdentityId, lines[0].LotNumber, lines[0].SerialNumber, movement.AccountingDate, movement.OccurredAt,
                 Math.Max(movement.BaseQuantity, 0), Math.Max(-movement.BaseQuantity, 0), Math.Max(movement.Value, 0), Math.Max(-movement.Value, 0), quantity, value,

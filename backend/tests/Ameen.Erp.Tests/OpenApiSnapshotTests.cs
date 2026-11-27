@@ -71,7 +71,7 @@ public static class OpenApiSnapshotTests
                 if (!cashBoxProperties.TryGetProperty(name, out _))
                     throw new Exception("CASH01 original field missing from OpenAPI: " + name);
             var cashPaths = json.RootElement.GetProperty("paths");
-            foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger", "accounts/{accountId}/ledger/print", "inventory-balances", "items/{itemId}/ledger" })
+            foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger", "accounts/{accountId}/ledger/print", "inventory-balances", "items/{itemId}/ledger", "items/{itemId}/ledger/print" })
             {
                 var operation = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/" + report).GetProperty("get");
                 var parameter = operation.GetProperty("parameters").EnumerateArray()
@@ -82,6 +82,10 @@ public static class OpenApiSnapshotTests
                     schema.GetProperty("items").GetProperty("format").GetString() != "uuid")
                     throw new Exception("Report branchIds must be a repeated UUID query parameter");
             }
+            var inventoryPrint = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/items/{itemId}/ledger/print").GetProperty("get");
+            if (!inventoryPrint.GetProperty("responses").GetProperty("200").GetProperty("content").TryGetProperty("text/html", out _) ||
+                inventoryPrint.GetProperty("security").GetArrayLength() == 0)
+                throw new Exception("RPT09 print must expose authenticated HTML response");
             var cashCreate = cashPaths.GetProperty("/api/v1/companies/{companyId}/cash-boxes").GetProperty("post");
             if (cashCreate.GetProperty("security").GetArrayLength() == 0 ||
                 !cashCreate.GetProperty("parameters").EnumerateArray().Any(p =>

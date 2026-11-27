@@ -1476,6 +1476,61 @@ public static class HostedApiIntegration
                 using (var noIdentityJson = JsonDocument.Parse(await noIdentity.Content.ReadAsStringAsync()))
                     Ensure(noIdentity.StatusCode == HttpStatusCode.OK && noIdentityJson.RootElement.GetProperty("rows").GetProperty("totalCount").GetInt32() == 0,
                         "RPT09 identity filter must exclude untracked stock");
+                // Administrative corruption in isolated integration SQL only: reject inconsistent source units,
+                // restore the fixture in finally, and verify the valid report is still available.
+                await using (var rpt09CorruptionDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                {
+                    await rpt09CorruptionDb.Database.ExecuteSqlInterpolatedAsync($"UPDATE [StockMovements] SET [BaseQuantity]=[BaseQuantity]+1 WHERE [CompanyId]={companyId} AND [OpeningId]={opening.ResourceId}");
+                    try
+                    {
+                        using var rpt09Rejected = await client.GetAsync(rpt09LedgerUrl);
+                        using var rpt09Problem = JsonDocument.Parse(await rpt09Rejected.Content.ReadAsStringAsync());
+                        Ensure(rpt09Rejected.StatusCode == HttpStatusCode.Conflict &&
+                            rpt09Problem.RootElement.GetProperty("code").GetString() == "inventory_ledger_source_mismatch",
+                            "RPT09 inconsistent source conversion was not rejected by HTTP");
+                    }
+                    finally
+                    {
+                        await rpt09CorruptionDb.Database.ExecuteSqlInterpolatedAsync($"UPDATE [StockMovements] SET [BaseQuantity]=[BaseQuantity]-1 WHERE [CompanyId]={companyId} AND [OpeningId]={opening.ResourceId}");
+                    }
+                }
+                using (var rpt09Restored = await client.GetAsync(rpt09LedgerUrl))
+                    Ensure(rpt09Restored.StatusCode == HttpStatusCode.OK, "RPT09 valid historical source failed after fixture restore");
+                Console.WriteLine("  HOST PASS RPT09 CTRL01/AC02 source conversion conflict and restored valid report");
+                var rpt09PrintUrl = rpt09LedgerUrl.Replace("/ledger?", "/ledger/print?") + "&offset=1&limit=1";
+                var rpt09PrintBefore = await ReadOnlyCounts(connection, companyId);
+                using (var rpt09Printed = await client.GetAsync(rpt09PrintUrl))
+                using (var rpt09Json = await client.GetAsync(rpt09LedgerUrl + "&offset=1&limit=1"))
+                {
+                    rpt09Printed.EnsureSuccessStatusCode(); rpt09Json.EnsureSuccessStatusCode();
+                    var html = await rpt09Printed.Content.ReadAsStringAsync();
+                    var report = JsonSerializer.Deserialize<InventoryLedgerResult>(await rpt09Json.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var row = report.Rows.Items.Single();
+                    Ensure(rpt09Printed.Content.Headers.ContentType?.MediaType == "text/html" &&
+                        rpt09Printed.Headers.TryGetValues("Cache-Control", out var rpt09Cache) && rpt09Cache.Any(x => x.Contains("no-store")) &&
+                        rpt09Printed.Headers.TryGetValues("Content-Security-Policy", out var rpt09Csp) && rpt09Csp.Any(x => x.Contains("default-src 'none'")) &&
+                        html.Contains("بطاقة الصنف والحركة") && html.Contains("وقت الاستخراج UTC") &&
+                        html.Contains(companyId.ToString()) && html.Contains(row.OpeningId.ToString()) &&
+                        html.Contains(row.JournalId.ToString()) && html.Contains(row.MovementId.ToString()) &&
+                        !html.Contains(postedOpeningJournalId.ToString()) && html.Contains("HTTP-RPT09-BOX") &&
+                        html.Contains("الإجماليات تخص كامل نطاق المرشحات"), "RPT09 print missing scope, page or historical source");
+                    string Rpt09PrintAmounts(params decimal[] values) => string.Concat(values.Select(x =>
+                        "<td class=\"num\">" + x.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture) + "</td>"));
+                    Ensure(html.Contains(Rpt09PrintAmounts(row.InQuantity, row.OutQuantity, row.InValue, row.OutValue, row.RunningQuantity, row.RunningValue)) &&
+                        html.Contains(Rpt09PrintAmounts(report.InQuantity, report.InValue)) &&
+                        html.Contains(Rpt09PrintAmounts(report.OutQuantity, report.OutValue)) &&
+                        html.Contains(Rpt09PrintAmounts(row.DocumentUnits[0].Quantity, row.DocumentUnits[0].FactorToBase, row.DocumentUnits[0].UnitCost, row.DocumentUnits[0].Value)),
+                        "RPT09 print differs from JSON quantities, values or costs");
+                }
+                using (var rpt09InvalidPrint = await client.GetAsync(rpt09PrintUrl.Replace("limit=1", "limit=201")))
+                    Ensure(rpt09InvalidPrint.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT09 print accepted oversized page");
+                Authenticate(Token("audit-no-membership"));
+                using (var rpt09DeniedPrint = await client.GetAsync(rpt09PrintUrl))
+                    Ensure(rpt09DeniedPrint.StatusCode == HttpStatusCode.Forbidden, "RPT09 print exposed another tenant");
+                Authenticate(Token("sql-owner"));
+                Ensure(rpt09PrintBefore == await ReadOnlyCounts(connection, companyId), "RPT09 print created command effects");
+                Console.WriteLine("  HOST PASS RPT09 OP04 protected printed page, full totals, historical units and tenant denial");
+
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
 
@@ -2548,6 +2603,35 @@ public static class HostedApiIntegration
                         data.RootElement.GetProperty("totalCount").GetInt32() == 1,
                         "COST01 rejected HTTP cycle added audit");
                 Console.WriteLine("  HOST PASS COST01 cycle rollback and absence of DELETE over HTTPS/JWT/SQL");
+                // F06 requires an explicit Boolean; omitted or string values must not disable a card.
+                var rootStatusPath = centersPath + $"/{rootCenter.ResourceId}/status";
+                foreach (var statusPayload in new[]
+                {
+                    $"{{\"expectedVersion\":\"{rootCenter.Version}\",\"reason\":\"missing state\"}}",
+                    $"{{\"expectedVersion\":\"{rootCenter.Version}\",\"isActive\":\"false\",\"reason\":\"wrong state type\"}}"
+                })
+                {
+                    using var malformedStatus = new HttpRequestMessage(HttpMethod.Post, rootStatusPath);
+                    malformedStatus.Headers.Add("Idempotency-Key", Fixture.Key());
+                    malformedStatus.Content = new StringContent(statusPayload, Encoding.UTF8, "application/json");
+                    using var rejectedStatus = await client.SendAsync(malformedStatus);
+                    Ensure(rejectedStatus.StatusCode == HttpStatusCode.BadRequest, "COST01 F06 accepted missing or non-Boolean status");
+                }
+                using (var blockedStatus = new HttpRequestMessage(HttpMethod.Post, rootStatusPath))
+                {
+                    blockedStatus.Headers.Add("Idempotency-Key", Fixture.Key());
+                    blockedStatus.Content = new StringContent(JsonSerializer.Serialize(
+                        new SetCostCenterStatusRequest(rootCenter.Version, false, "تعطيل أب فعال"), JsonDefaults.Options), Encoding.UTF8, "application/json");
+                    using var rejectedStatus = await client.SendAsync(blockedStatus);
+                    using var data = JsonDocument.Parse(await rejectedStatus.Content.ReadAsStringAsync());
+                    Ensure(!rejectedStatus.IsSuccessStatusCode && data.RootElement.GetProperty("code").GetString() == "active_child_centers",
+                        "COST01 accepted disabling parent with active child");
+                }
+                using (var currentRoot = await client.GetAsync(centersPath + $"/{rootCenter.ResourceId}"))
+                using (var data = JsonDocument.Parse(await currentRoot.Content.ReadAsStringAsync()))
+                    Ensure(currentRoot.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("isActive").GetBoolean() &&
+                        data.RootElement.GetProperty("version").GetGuid() == rootCenter.Version,
+                        "COST01 rejected status changed parent");
                 var trialByCenter = $"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31" +
                     $"&accountLevel=1&showZero=false&costCenterId={childCenter.ResourceId}";
                 using (var active = await client.GetAsync(trialByCenter))
@@ -2570,7 +2654,11 @@ public static class HostedApiIntegration
                 var centerAuditPath = centersPath + $"/{childCenter.ResourceId}/audit-events";
                 using (var centerDetail = await client.GetAsync(centersPath + $"/{childCenter.ResourceId}"))
                 using (var data = JsonDocument.Parse(await centerDetail.Content.ReadAsStringAsync()))
-                    Ensure(centerDetail.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("revision").GetInt32() == 3,
+                    Ensure(centerDetail.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("revision").GetInt32() == 3 &&
+                        !data.RootElement.GetProperty("isActive").GetBoolean() &&
+                        data.RootElement.GetProperty("englishName").GetString() == "HTTP edited center" &&
+                        data.RootElement.GetProperty("notes").GetString() == "ملاحظة" &&
+                        data.RootElement.GetProperty("parentId").GetGuid() == rootCenter.ResourceId,
                         "COST01 numeric revision did not persist");
                 using (var auditResponse = await client.GetAsync(centerAuditPath))
                 using (var data = JsonDocument.Parse(await auditResponse.Content.ReadAsStringAsync()))
@@ -2605,6 +2693,25 @@ public static class HostedApiIntegration
                     Ensure(deniedAudit.StatusCode == HttpStatusCode.Forbidden, "COST01 audit leaked outside company-wide scope");
                 }
                 Authenticate(Token("sql-owner"));
+                var centerSearchUrl = centersPath + "/search";
+                foreach (var centerSearchTerm in new[] { "HTTP-CHILD", "edited", Uri.EscapeDataString("مركز معدل") })
+                {
+                    using var response = await client.GetAsync(centerSearchUrl + $"?search={centerSearchTerm}&parentId={rootCenter.ResourceId}&isActive=false&limit=1");
+                    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                    Ensure(response.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 1 &&
+                        json.RootElement.GetProperty("items")[0].GetProperty("id").GetGuid() == childCenter.ResourceId,
+                        "COST01 search code/Arabic/English filters differ");
+                }
+                using (var response = await client.GetAsync(centerSearchUrl + "?search=HTTP-CHILD&offset=1&limit=1"))
+                using (var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                    Ensure(response.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 1 &&
+                        json.RootElement.GetProperty("items").GetArrayLength() == 0, "COST01 search page boundary differs");
+                using (var response = await client.GetAsync(centerAuditPath))
+                using (var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                    Ensure(response.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 3,
+                        "COST01 search added audit");
+                Console.WriteLine("  HOST PASS COST01-OP01 code and Unicode search, paging and read-only history");
+                Console.WriteLine("  HOST PASS COST01-FG02/OP04 explicit Boolean, rejected parent status and preserved metadata");
                 Console.WriteLine("  HOST PASS COST01-FG04/OP06 audit timestamps, numeric revision, stable pages and scoped JWT denial");
                 // Separate card and draft so the prior report and audit assertions stay independent.
                 var usageCenter = await Command(client, centersPath, new CreateCostCenterRequest("HTTP-USAGE", "مركز استخدام", journalRequest.BranchId));

@@ -215,6 +215,56 @@ public static class InventoryReportTests
                 reversal.DocumentUnits.Sum(x => x.Value) == -67.5m && reversal.DocumentUnits[1].UnitCost == 30m &&
                 empty.Rows.Items.Count == 0);
         });
+        test("RPT09 CTRL01/AC02: inconsistent historical units and recorded movement fail closed", async f =>
+        {
+            var (request, posted) = await Post(f);
+            var item = request.Lines[0].ItemId;
+            var movement = f.Store.All<StockMovement>().Single();
+            var source = f.Store.All<InventoryOpening>().Single(x => x.Id == posted.ResourceId);
+            var line = source.Lines.Single();
+            var initial = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            async Task RejectCorruption(object target, string property, object incorrect)
+            {
+                var member = target.GetType().GetProperty(property)!;
+                var original = member.GetValue(target);
+                try
+                {
+                    member.SetValue(target, incorrect);
+                    await Error("inventory_ledger_source_mismatch", () => Ledger(f, item));
+                }
+                finally { member.SetValue(target, original); }
+                Ensure((await Ledger(f, item)).ClosingValue == 10.5m);
+            }
+            await RejectCorruption(movement, nameof(StockMovement.BaseQuantity), 3m);
+            await RejectCorruption(movement, nameof(StockMovement.Value), 11.5m);
+            await RejectCorruption(line, nameof(InventoryOpeningLine.FactorToBase), 2m);
+            await RejectCorruption(movement, nameof(StockMovement.OpeningId), Guid.NewGuid());
+            Ensure(initial == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
+        test("RPT09 OP04: print preserves selected page, full totals and scope without effects", async f =>
+        {
+            var (request, posted) = await Post(f);
+            var item = request.Lines[0].ItemId;
+            await Reverse(f, posted, Fixture.Date.AddDays(1));
+            var before = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            var document = await f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner, Fixture.Date,
+                Fixture.Date.AddDays(1), f.BranchId, request.WarehouseId, null, 1, 1, default);
+            var report = document.Report;
+            Ensure(report.Rows.Offset == 1 && report.Rows.TotalCount == 2 && report.InQuantity == 2 &&
+                report.OutQuantity == 2 && report.InValue == 10.5m && report.OutValue == 10.5m &&
+                report.ClosingValue == 0 && report.Rows.Items.Single().DocumentUnits.Single().Quantity == -2 &&
+                document.BranchNames.Length == 1 && document.BaseUnitCode == "EA" &&
+                document.WarehouseName is not null && document.ExtractedAt != default);
+            await Error("branch_access_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited,
+                Fixture.Date, Fixture.Date.AddDays(1), f.OtherBranchId, null, null, 0, 1, default));
+            await Error("invalid_pagination", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner,
+                Fixture.Date, Fixture.Date.AddDays(1), null, null, null, 0, 201, default));
+            Ensure(before == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));
