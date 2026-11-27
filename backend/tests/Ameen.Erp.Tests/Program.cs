@@ -707,6 +707,7 @@ RecurringTests.Register(Test);
 ScheduledReversalTests.Register(Test);
 JournalAuditTests.Register(Test);
 Test("RPT01/RPT02-FG01: selected branches, authorization, dates and historical totals", ReportBranchSelectionTests.Run);
+Test("RPT01-AC01/AC02/CTRL01: exact functional amounts, historical scope and unbalanced rejection", TrialBalanceAcceptanceTests.Run);
 Test("RPT02-AC01/AC02/CTRL01: posted source lines, document order, branch balances and pagination", AccountLedgerAcceptanceTests.Run);
 NumberingTests.Register(Test);
 FinancialMappingTests.Register(Test);
