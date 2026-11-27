@@ -106,6 +106,33 @@ public static class CostCenterTests
             await Error("version_conflict", () => f.Service.CostCenter.EditCostCenter(f.CompanyId, c.Id, f.Owner, Fixture.Key(), request, default));
             Ensure((await Get(f, r)).Revision == 2);
         });
+        test("COST01-OP05: direct and descendant usage, paging and read-only history", async f =>
+        {
+            var root = await Create(f, "USAGE-ROOT", null);
+            var child = await Create(f, "USAGE-CHILD", f.BranchId, root.ResourceId);
+            var draft = await f.Draft(Request(f, child.ResourceId));
+            await f.Action(draft, "cancel", reason: "إلغاء");
+            var member = f.Store.All<Membership>().Single(x => x.Subject == f.Clerk.Subject);
+            await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(),
+                new(f.Clerk.Subject, Permissions.All, true, Array.Empty<Guid>(), member.Version), default);
+            var template = await f.Service.RecurringJournal.CreateRecurringJournal(f.CompanyId, f.Clerk, Fixture.Key(),
+                new(f.BranchId, "قالب استخدام", RecurringFrequency.Monthly, RecurringGenerationMode.Manual, Fixture.Date, Fixture.Date,
+                    Request(f, child.ResourceId).Lines.Select(x => new RecurringLineRequest(x.AccountId, x.CostCenterId, x.Description, x.CurrencyCode, x.Debit, x.Credit)).ToArray()), default);
+            await f.Service.RecurringJournal.SetRecurringStatus(f.CompanyId, template.ResourceId, f.Clerk, Fixture.Key(), new(template.Version, false, "تعطيل"), default);
+            var before = await Get(f, child);
+            var auditBefore = f.Store.All<AuditEvent>().Count();
+            var parentUsage = await f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, root.ResourceId, f.Owner, 0, 10, default);
+            Ensure(parentUsage.ChildCenterCount == 1 && parentUsage.HasUsageInSubtree && parentUsage.References.TotalCount == 0);
+            var one = await f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, child.ResourceId, f.Owner, 0, 1, default);
+            var two = await f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, child.ResourceId, f.Owner, 1, 1, default);
+            Ensure(one.JournalCount == 1 && one.RecurringTemplateCount == 1 && one.HasUsageInSubtree &&
+                one.References.TotalCount == 2 && two.References.TotalCount == 2 &&
+                one.References.Items.Single().ResourceId == draft.ResourceId && one.References.Items.Single().State == "Cancelled" &&
+                two.References.Items.Single().ResourceId == template.ResourceId && two.References.Items.Single().State == "Inactive");
+            await Error("invalid_pagination", () => f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, child.ResourceId, f.Owner, 0, 201, default));
+            await Error("all_branches_required", () => f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, root.ResourceId, f.Limited, 0, 10, default));
+            Ensure((await Get(f, child)).Version == before.Version && f.Store.All<AuditEvent>().Count() == auditBefore);
+        });
         test("COST01-FG04/OP06: audit history is scoped, paged and unchanged on stale edit", async f =>
         {
             var r = await Create(f, "AUDIT", f.BranchId);
