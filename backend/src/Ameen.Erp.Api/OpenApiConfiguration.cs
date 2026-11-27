@@ -23,6 +23,18 @@ public static class OpenApiConfiguration
         });
         options.AddOperationTransformer((operation, context, ct) =>
         {
+            if (context.Description.HttpMethod == "GET" &&
+                context.Description.RelativePath == "api/v1/companies/{companyId}/reports/items/{itemId}/ledger/export" &&
+                operation.Responses?.TryGetValue("200", out var response) == true && response is OpenApiResponse concrete)
+            {
+                concrete.Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"] = new()
+                    {
+                        Schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" }
+                    }
+                };
+            }
             if (context.Description.HttpMethod is "POST" or "PUT" &&
                 context.Description.RelativePath?.StartsWith("api/v1/", StringComparison.Ordinal) == true &&
                 context.Description.RelativePath?.EndsWith("/journals/process-batch", StringComparison.Ordinal) != true &&

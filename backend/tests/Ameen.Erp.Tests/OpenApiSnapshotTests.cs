@@ -82,6 +82,11 @@ public static class OpenApiSnapshotTests
                     schema.GetProperty("items").GetProperty("format").GetString() != "uuid")
                     throw new Exception("Report branchIds must be a repeated UUID query parameter");
             }
+            var inventoryExport = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/items/{itemId}/ledger/export").GetProperty("get");
+            var exportSchema = inventoryExport.GetProperty("responses").GetProperty("200").GetProperty("content")
+                .GetProperty("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").GetProperty("schema");
+            if (exportSchema.GetProperty("format").GetString() != "binary" || inventoryExport.GetProperty("security").GetArrayLength() == 0)
+                throw new Exception("RPT09 export must expose authenticated binary XLSX");
             var inventoryPrint = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/items/{itemId}/ledger/print").GetProperty("get");
             if (!inventoryPrint.GetProperty("responses").GetProperty("200").GetProperty("content").TryGetProperty("text/html", out _) ||
                 inventoryPrint.GetProperty("security").GetArrayLength() == 0)
