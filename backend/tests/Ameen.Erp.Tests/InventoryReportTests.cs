@@ -283,6 +283,40 @@ public static class InventoryReportTests
             Ensure(before == (f.Store.Count<AuditEvent>() - 1, f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
         });
+        test("RPT09 OP05: independent export permission, exact historical workbook and audit", async f =>
+        {
+            var (request, posted) = await Post(f);
+            var item = request.Lines[0].ItemId;
+            await Reverse(f, posted, Fixture.Date.AddDays(1));
+            var exporter = new Actor("rpt09-exporter");
+            var reader = new Actor("rpt09-reader");
+            var exportOnly = new Actor("rpt09-export-only");
+            foreach (var (actor, permissions) in new[] {
+                (exporter, new[] { Permissions.Read, Permissions.InventoryLedgerExport }),
+                (reader, new[] { Permissions.Read, Permissions.InventoryLedgerPrint }),
+                (exportOnly, new[] { Permissions.InventoryLedgerExport }) })
+                await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(actor.Subject,
+                    permissions, false, new[] { f.BranchId }, null), default);
+            var before = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            Task<byte[]> Export(Actor actor, Guid? branch = null) => f.Service.Report.InventoryLedgerExport(f.CompanyId, item, actor,
+                Fixture.Date, Fixture.Date.AddDays(1), branch, request.WarehouseId, null, default);
+            var expected = await f.Service.Report.InventoryLedger(f.CompanyId, item, exporter, Fixture.Date,
+                Fixture.Date.AddDays(1), f.BranchId, request.WarehouseId, null, 0, 10, default);
+            InventoryLedgerExportTests.AssertWorkbook(await Export(exporter, f.BranchId), expected);
+            await Error("permission_denied", () => Export(reader));
+            await Error("permission_denied", () => Export(exportOnly));
+            await Error("branch_access_denied", () => Export(exporter, f.OtherBranchId));
+            await Error("permission_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, exporter,
+                Fixture.Date, Fixture.Date, f.BranchId, null, null, 0, 1, default));
+            var audit = f.Store.All<AuditEvent>().Single(x => x.Action == "report.rpt09.export");
+            Ensure(audit.ActorId == exporter.Subject && audit.ResourceId == item);
+            using var details = System.Text.Json.JsonDocument.Parse(audit.Details);
+            Ensure(details.RootElement.GetProperty("rowCount").GetInt32() == 2 &&
+                details.RootElement.GetProperty("branchIds")[0].GetGuid() == f.BranchId);
+            Ensure(before == (f.Store.Count<AuditEvent>() - 1, f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
         test("RPT08 OP04: scoped print, full values, permission and audit", async f =>
         {
             var (request, posted) = await Post(f);

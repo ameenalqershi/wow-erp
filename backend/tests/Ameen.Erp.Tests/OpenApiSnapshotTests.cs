@@ -71,7 +71,7 @@ public static class OpenApiSnapshotTests
                 if (!cashBoxProperties.TryGetProperty(name, out _))
                     throw new Exception("CASH01 original field missing from OpenAPI: " + name);
             var cashPaths = json.RootElement.GetProperty("paths");
-            foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/export", "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger", "accounts/ledger-range", "accounts/{accountId}/ledger/print", "inventory-balances", "inventory-balances/print", "items/{itemId}/ledger", "items/{itemId}/ledger/print" })
+            foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/export", "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger", "accounts/ledger-range", "accounts/{accountId}/ledger/print", "inventory-balances", "inventory-balances/print", "items/{itemId}/ledger", "items/{itemId}/ledger/print", "items/{itemId}/ledger/export" })
             {
                 var operation = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/" + report).GetProperty("get");
                 var parameter = operation.GetProperty("parameters").EnumerateArray()
@@ -86,6 +86,11 @@ public static class OpenApiSnapshotTests
             if (!balancePrint.GetProperty("responses").GetProperty("200").GetProperty("content").TryGetProperty("text/html", out _) ||
                 balancePrint.GetProperty("security").GetArrayLength() == 0)
                 throw new Exception("RPT08 print must expose authenticated HTML");
+            var inventoryExport = cashPaths.GetProperty("/api/v1/companies/{companyId}/reports/items/{itemId}/ledger/export").GetProperty("get");
+            var exportSchema = inventoryExport.GetProperty("responses").GetProperty("200").GetProperty("content")
+                .GetProperty("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").GetProperty("schema");
+            if (exportSchema.GetProperty("format").GetString() != "binary" || inventoryExport.GetProperty("security").GetArrayLength() == 0)
+                throw new Exception("RPT09 export must expose authenticated binary XLSX");
             foreach (var report in new[] { "trial-balance", "trial-balance/print", "trial-balance/export",
                 "trial-balance/{accountId}/drilldown", "accounts/{accountId}/ledger",
                 "accounts/{accountId}/ledger/print", "accounts/ledger-range" })
