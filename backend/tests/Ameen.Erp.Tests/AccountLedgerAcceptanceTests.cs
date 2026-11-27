@@ -55,6 +55,22 @@ public static class AccountLedgerAcceptanceTests
                 page.OpeningBalance != 40 || page.ClosingBalance != 45)
                 throw new Exception("RPT02 pagination changed the source line, balance or totals");
         }
+        // RPT02-OP02: an exhausted page must retain full scope and totals,
+        // not reset the running balance to zero or hide prior movements.
+        var exhausted = await Page(f.Clerk, 3, 1);
+        if (exhausted.Entries.Items.Count != 0 || exhausted.Entries.TotalCount != 3 ||
+            exhausted.Entries.Offset != 3 || exhausted.Entries.Limit != 1 ||
+            exhausted.AccountId != f.CashId || exhausted.CompanyId != f.CompanyId ||
+            exhausted.Currency != "SAR" || exhausted.From != date || exhausted.To != date ||
+            exhausted.OpeningBalance != full.OpeningBalance || exhausted.PeriodDebit != full.PeriodDebit ||
+            exhausted.PeriodCredit != full.PeriodCredit || exhausted.ClosingBalance != full.ClosingBalance ||
+            !exhausted.BranchIds.ToHashSet().SetEquals(full.BranchIds))
+            throw new Exception("RPT02 exhausted page lost statement totals or scope");
+        var openingOnly = await f.Service.Report.AccountLedger(f.CompanyId, f.CashId, f.Clerk,
+            date.AddDays(2), date.AddDays(2), null, 0, 1, default);
+        if (openingOnly.Entries.TotalCount != 0 || openingOnly.OpeningBalance != 1044 ||
+            openingOnly.ClosingBalance != 1044 || openingOnly.PeriodDebit != 0 || openingOnly.PeriodCredit != 0)
+            throw new Exception("RPT02 empty historical period discarded carried balance");
         // RPT-CONTRACT-01/02: compare every posting account, not just the
         // cash debit, across the same authorized historical report scope.
         foreach (var actor in new[] { f.Clerk, f.Limited })
