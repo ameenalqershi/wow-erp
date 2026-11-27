@@ -9,8 +9,8 @@
     "implemented": 349,
     "audit": 46,
     "derived": 4,
-    "partial": 248,
-    "pending": 2112
+    "partial": 249,
+    "pending": 2111
   },
   "coverage_note": "Field bindings are reviewed mappings, not proof of an end-to-end UI or production operation.",
   "screens": {
@@ -2811,9 +2811,9 @@
       "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerAcceptanceTests.cs; backend/tests/Ameen.Erp.Tests/TrialBalanceAcceptanceTests.cs; backend/tests/Ameen.Erp.Tests/BalancedJournalLedgerSqlAcceptance.cs"
     },
     "RPT02": {
-      "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger; GET /companies/{companyId}/reports/accounts/{accountId}/ledger/print",
-      "implemented": "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة؛ معاينة طباعة كاملة بنفس المرشحات ومصدر ومركز السطر وصلاحية مستقلة وأثر استخراج",
-      "remaining": "نطاق حسابات وتصدير وطرق عرض إضافية",
+      "api": "GET /companies/{companyId}/reports/accounts/{accountId}/ledger; GET /companies/{companyId}/reports/accounts/ledger-range; GET /companies/{companyId}/reports/accounts/{accountId}/ledger/print",
+      "implemented": "حساب واحد أو نطاق حسابات بترتيب الرمز ومجاميع مستقلة لكل حساب؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة؛ معاينة طباعة كاملة بنفس المرشحات ومصدر ومركز السطر وصلاحية مستقلة وأثر استخراج",
+      "remaining": "طباعة وتصدير نطاق الحسابات وطرق عرض إضافية وتكامل صلاحيات نطاق البطاقة",
       "fields": {
         "RPT02-F01": {
           "status": "implemented",
@@ -2849,10 +2849,14 @@
         },
         "RPT02-F09": {
           "status": "partial",
-          "binding": "route.accountId: one account only"
+          "binding": "query.fromAccountId or route.accountId; active range endpoints and historical account lines"
+        },
+        "RPT02-F10": {
+          "status": "partial",
+          "binding": "query.toAccountId: inclusive ordinal range; output print/export integration pending"
         }
       },
-      "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerAcceptanceTests.cs"
+      "test_file": "backend/tests/Ameen.Erp.Tests/Program.cs; backend/tests/Ameen.Erp.Tests/ReportBranchSelectionTests.cs; backend/tests/Ameen.Erp.Tests/HttpIntegration.cs; backend/tests/Ameen.Erp.Tests/OpenApiSnapshotTests.cs; backend/tests/Ameen.Erp.Tests/HostedApiIntegration.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerAcceptanceTests.cs; backend/tests/Ameen.Erp.Tests/AccountLedgerRangeTests.cs"
     },
     "RPT08": {
       "api": "GET /companies/{companyId}/reports/inventory-balances",

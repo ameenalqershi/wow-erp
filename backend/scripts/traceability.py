@@ -525,8 +525,8 @@ MAP["CASH11"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name
 screen("RPT01", "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print; GET /companies/{companyId}/reports/trial-balance/export",
        "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات وصلاحية مستقلة وأثر استخراج؛ تصدير Excel بنفس المرشحات وصلاحية مستقلة وأثر استخراج", "طرق عرض العملات ومستوى التفصيل وتحسين أحجام كبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth)", 10: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 11: "query.showZero"})
-screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger; GET /companies/{companyId}/reports/accounts/{accountId}/ledger/print",
-       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة؛ معاينة طباعة كاملة بنفس المرشحات ومصدر ومركز السطر وصلاحية مستقلة وأثر استخراج", "نطاق حسابات وتصدير وطرق عرض إضافية",
+screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger; GET /companies/{companyId}/reports/accounts/ledger-range; GET /companies/{companyId}/reports/accounts/{accountId}/ledger/print",
+       "حساب واحد أو نطاق حسابات بترتيب الرمز ومجاميع مستقلة لكل حساب؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة؛ معاينة طباعة كاملة بنفس المرشحات ومصدر ومركز السطر وصلاحية مستقلة وأثر استخراج", "طباعة وتصدير نطاق الحسابات وطرق عرض إضافية وتكامل صلاحيات نطاق البطاقة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 11: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 12: "query.externalReference (exact case-sensitive match)"})
 
 screen("RPT08", "GET /companies/{companyId}/reports/inventory-balances",
@@ -540,6 +540,8 @@ screen("RPT09", "GET /companies/{companyId}/reports/items/{itemId}/ledger",
 for report in ["RPT01", "RPT02"]:
     names = ["Program.cs", "ReportBranchSelectionTests.cs", "HttpIntegration.cs", "OpenApiSnapshotTests.cs", "HostedApiIntegration.cs"]
     names.append("AccountLedgerAcceptanceTests.cs")
+    if report == "RPT02":
+        names.append("AccountLedgerRangeTests.cs")
     if report == "RPT01":
         names.extend(["TrialBalanceAcceptanceTests.cs", "BalancedJournalLedgerSqlAcceptance.cs"])
     MAP[report]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in names)
@@ -575,7 +577,8 @@ for code, n, binding, status in [
     ("RPT01", 7, "Posted and Reversed originals only; no selection", "partial"),
     ("RPT02", 5, "Currency: functional currency; original line amounts retained", "partial"),
     ("RPT02", 7, "Posted and Reversed originals only", "partial"),
-    ("RPT02", 9, "route.accountId: one account only", "partial"),
+    ("RPT02", 9, "query.fromAccountId or route.accountId; active range endpoints and historical account lines", "partial"),
+    ("RPT02", 10, "query.toAccountId: inclusive ordinal range; output print/export integration pending", "partial"),
 ]:
     MAP[code]["fields"][f"{code}-F{n:02}"] = dict(status=status, binding=binding)
 

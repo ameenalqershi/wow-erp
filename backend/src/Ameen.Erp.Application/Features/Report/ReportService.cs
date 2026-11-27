@@ -142,9 +142,24 @@ public sealed partial class ReportService : ApplicationService
             (x.State == JournalState.Posted || x.State == JournalState.Reversed) &&
             (externalReference == null || x.ExternalReference == externalReference) &&
             x.Lines.Any(l => l.AccountId == accountId && (costCenterId == null || l.CostCenterId == costCenterId)), ct);
-        var items = journals.OrderBy(x => x.AccountingDate).ThenBy(x => x.Number, StringComparer.Ordinal).ThenBy(x => x.Id)
-            .SelectMany(j => j.Lines.Where(l => l.AccountId == accountId && (costCenterId == null || l.CostCenterId == costCenterId))
-                .OrderBy(l => l.Position).Select(l => (Journal: j, Line: l))).ToArray();
+        var items = journals.SelectMany(j => j.Lines.Where(l => l.AccountId == accountId &&
+            (costCenterId == null || l.CostCenterId == costCenterId)).Select(l => (Journal: j, Line: l)));
+        var statement = CalculateLedger(items, from, limit is null);
+        var rows = statement.Rows;
+        return (new(accountId, company.FunctionalCurrency, from, to, statement.Opening, statement.Closing,
+            statement.Debit, statement.Credit,
+            new(rows.Skip(offset).Take(limit ?? rows.Count).ToArray(), rows.Count, offset, limit ?? rows.Count),
+            cid, branches, costCenterId, externalReference), statement.PrintRows);
+    }
+
+    // Single accounting algorithm for single-account and range statements.
+    private static (decimal Opening, decimal Closing, decimal Debit, decimal Credit,
+        IReadOnlyList<LedgerRow> Rows, IReadOnlyList<AccountLedgerPrintRow> PrintRows)
+        CalculateLedger(IEnumerable<(JournalEntry Journal, JournalLine Line)> source, DateOnly from, bool includePrintRows)
+    {
+        var items = source.OrderBy(x => x.Journal.AccountingDate)
+            .ThenBy(x => x.Journal.Number, StringComparer.Ordinal).ThenBy(x => x.Journal.Id)
+            .ThenBy(x => x.Line.Position).ToArray();
         var opening = items.Where(x => x.Journal.AccountingDate < from).Sum(x => x.Line.FunctionalDebit - x.Line.FunctionalCredit);
         var running = opening; var rows = new List<LedgerRow>();
         var printRows = new List<AccountLedgerPrintRow>();
@@ -154,12 +169,9 @@ public sealed partial class ReportService : ApplicationService
             var row = new LedgerRow(journal.Id, journal.Number, journal.AccountingDate, line.Position, line.Description,
                 line.FunctionalDebit, line.FunctionalCredit, running, line.CurrencyCode, line.Debit, line.Credit, line.ExchangeRate);
             rows.Add(row);
-            if (limit is null)
+            if (includePrintRows)
                 printRows.Add(new(row, journal.Source.ToString(), line.CostCenterId));
         }
-        return (new(accountId, company.FunctionalCurrency, from, to, opening, running,
-            rows.Sum(x => x.Debit), rows.Sum(x => x.Credit),
-            new(rows.Skip(offset).Take(limit ?? rows.Count).ToArray(), rows.Count, offset, limit ?? rows.Count),
-            cid, branches, costCenterId, externalReference), printRows);
+        return (opening, running, rows.Sum(x => x.Debit), rows.Sum(x => x.Credit), rows, printRows);
     }
 }

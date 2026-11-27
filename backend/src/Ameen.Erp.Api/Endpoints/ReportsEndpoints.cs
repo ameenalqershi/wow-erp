@@ -66,6 +66,13 @@ internal static class ReportsEndpoints
             Results.Ok(await s.TrialBalanceDrilldown(companyId, accountId, Actor(h), Date(from), Date(to),
                 branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
             .Produces<TrialBalanceDrilldownResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
+        app.MapGet(p + "/reports/accounts/ledger-range", async (Guid companyId,
+            [FromQuery] Guid fromAccountId, [FromQuery] Guid toAccountId, [FromQuery] string from, [FromQuery] string to,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, int? offset, int? limit, Guid? costCenterId, string? externalReference,
+            ReportService s, HttpContext h, CancellationToken ct) =>
+            Results.Ok(await s.AccountLedgerRange(companyId, fromAccountId, toAccountId, Actor(h),
+                Date(from), Date(to), branchId, offset ?? 0, limit ?? 50, ct, costCenterId, externalReference, branchIds)))
+            .Produces<AccountLedgerRangeResult>().RequireAuthorization().WithTags("RPT02 Account ledger");
         app.MapGet(p + "/reports/accounts/{accountId:guid}/ledger/print", async (Guid companyId, Guid accountId,
             [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds,
             Guid? costCenterId, string? externalReference, ReportService s, HttpContext h, CancellationToken ct) =>
