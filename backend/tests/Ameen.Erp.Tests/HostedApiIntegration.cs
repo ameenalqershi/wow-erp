@@ -1412,6 +1412,27 @@ public static class HostedApiIntegration
                 using (var noIdentityJson = JsonDocument.Parse(await noIdentity.Content.ReadAsStringAsync()))
                     Ensure(noIdentity.StatusCode == HttpStatusCode.OK && noIdentityJson.RootElement.GetProperty("rows").GetProperty("totalCount").GetInt32() == 0,
                         "RPT09 identity filter must exclude untracked stock");
+                // Administrative corruption in isolated integration SQL only: reject inconsistent source units,
+                // restore the fixture in finally, and verify the valid report is still available.
+                await using (var rpt09CorruptionDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                {
+                    await rpt09CorruptionDb.Database.ExecuteSqlInterpolatedAsync($"UPDATE [StockMovements] SET [BaseQuantity]=[BaseQuantity]+1 WHERE [CompanyId]={companyId} AND [OpeningId]={opening.ResourceId}");
+                    try
+                    {
+                        using var rpt09Rejected = await client.GetAsync(rpt09LedgerUrl);
+                        using var rpt09Problem = JsonDocument.Parse(await rpt09Rejected.Content.ReadAsStringAsync());
+                        Ensure(rpt09Rejected.StatusCode == HttpStatusCode.Conflict &&
+                            rpt09Problem.RootElement.GetProperty("code").GetString() == "inventory_ledger_source_mismatch",
+                            "RPT09 inconsistent source conversion was not rejected by HTTP");
+                    }
+                    finally
+                    {
+                        await rpt09CorruptionDb.Database.ExecuteSqlInterpolatedAsync($"UPDATE [StockMovements] SET [BaseQuantity]=[BaseQuantity]-1 WHERE [CompanyId]={companyId} AND [OpeningId]={opening.ResourceId}");
+                    }
+                }
+                using (var rpt09Restored = await client.GetAsync(rpt09LedgerUrl))
+                    Ensure(rpt09Restored.StatusCode == HttpStatusCode.OK, "RPT09 valid historical source failed after fixture restore");
+                Console.WriteLine("  HOST PASS RPT09 CTRL01/AC02 source conversion conflict and restored valid report");
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
 
