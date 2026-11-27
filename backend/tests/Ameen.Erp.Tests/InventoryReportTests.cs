@@ -215,6 +215,34 @@ public static class InventoryReportTests
                 reversal.DocumentUnits.Sum(x => x.Value) == -67.5m && reversal.DocumentUnits[1].UnitCost == 30m &&
                 empty.Rows.Items.Count == 0);
         });
+        test("RPT09 CTRL01/AC02: inconsistent historical units and recorded movement fail closed", async f =>
+        {
+            var (request, posted) = await Post(f);
+            var item = request.Lines[0].ItemId;
+            var movement = f.Store.All<StockMovement>().Single();
+            var source = f.Store.All<InventoryOpening>().Single(x => x.Id == posted.ResourceId);
+            var line = source.Lines.Single();
+            var initial = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            async Task RejectCorruption(object target, string property, object incorrect)
+            {
+                var member = target.GetType().GetProperty(property)!;
+                var original = member.GetValue(target);
+                try
+                {
+                    member.SetValue(target, incorrect);
+                    await Error("inventory_ledger_source_mismatch", () => Ledger(f, item));
+                }
+                finally { member.SetValue(target, original); }
+                Ensure((await Ledger(f, item)).ClosingValue == 10.5m);
+            }
+            await RejectCorruption(movement, nameof(StockMovement.BaseQuantity), 3m);
+            await RejectCorruption(movement, nameof(StockMovement.Value), 11.5m);
+            await RejectCorruption(line, nameof(InventoryOpeningLine.FactorToBase), 2m);
+            await RejectCorruption(movement, nameof(StockMovement.OpeningId), Guid.NewGuid());
+            Ensure(initial == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));
