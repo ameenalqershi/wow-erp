@@ -251,6 +251,36 @@ public static class FoundationSqlIntegration
         Ensure(historyIds.SequenceEqual(centerHistory.Items.Select(x => x.Id)), "COST01 SQL audit paging unstable");
         await Error("reference_not_found", () => Call(s => s.CostCenter.ListCostCenterAudit(otherId, child.Id, owner, 0, 10, default)));
         Console.WriteLine("  SQL PASS COST01-FG04/OP06 server timestamps, numeric revision, audit paging, rollback and tenant isolation");
+        // Separate card: two competing status writes may commit only one revision.
+        var statusCard = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FND-STATUS", "مركز حالة", journalRequest.BranchId, root.ResourceId, EnglishName: "Center Ω", Notes: "ملاحظات"), default));
+        var statusBefore = await Call(s => s.CostCenter.GetCostCenter(cid, statusCard.ResourceId, owner, default));
+        Ensure(statusBefore.IsActive && statusBefore.ParentId == root.ResourceId && statusBefore.EnglishName == "Center Ω" &&
+            statusBefore.Notes == "ملاحظات", "COST01 FG02 persisted metadata differs");
+        var statusRequest = new SetCostCenterStatusRequest(statusBefore.Version, false, "تعطيل");
+        var statusKeys = new[] { Fixture.Key(), Fixture.Key() };
+        async Task<(string Code, CommandReceipt? Receipt)> TryDisable(string key)
+        {
+            try { return ("accepted", await Call(s => s.CostCenter.SetCostCenterStatus(cid, statusBefore.Id, owner, key, statusRequest, default))); }
+            catch (BusinessException ex) { return (ex.Code, null); }
+        }
+        var statusOutcomes = await Task.WhenAll(statusKeys.Select(TryDisable));
+        Ensure(statusOutcomes.Count(x => x.Code == "accepted") == 1 &&
+            statusOutcomes.Count(x => x.Code == "version_conflict") == 1, "COST01 status concurrency differs");
+        var acceptedIndex = Array.FindIndex(statusOutcomes, x => x.Code == "accepted");
+        Ensure(await Call(s => s.CostCenter.SetCostCenterStatus(cid, statusBefore.Id, owner, statusKeys[acceptedIndex], statusRequest, default))
+            == statusOutcomes[acceptedIndex].Receipt, "COST01 status replay differs");
+        await using (var statusDb = Context())
+        {
+            var saved = await statusDb.Set<CostCenter>().SingleAsync(x => x.CompanyId == cid && x.Id == statusBefore.Id);
+            Ensure(!saved.IsActive && saved.Revision == 2 && saved.ParentId == root.ResourceId &&
+                saved.EnglishName == statusBefore.EnglishName && saved.Notes == statusBefore.Notes,
+                "COST01 status changed metadata or incremented revision twice");
+            Ensure(await statusDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == cid && x.ResourceId == saved.Id) == 2 &&
+                !await statusDb.Set<IdempotencyRecord>().AnyAsync(x => x.CompanyId == cid && x.Key == statusKeys[1 - acceptedIndex]),
+                "COST01 rejected status persisted audit or receipt");
+        }
+        Console.WriteLine("  SQL PASS COST01-FG02/OP04 metadata roundtrip, concurrent status rejection and exact replay");
         Console.WriteLine("  SQL PASS COST01 tenant FKs and SYS04/COST01 status writes under runtime role");
     }
     private static void Ensure(bool condition, string message) { if (!condition) throw new Exception(message); }
