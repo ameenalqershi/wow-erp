@@ -106,6 +106,38 @@ public static class CostCenterTests
             await Error("version_conflict", () => f.Service.CostCenter.EditCostCenter(f.CompanyId, c.Id, f.Owner, Fixture.Key(), request, default));
             Ensure((await Get(f, r)).Revision == 2);
         });
+        test("COST01-FG04/OP06: audit history is scoped, paged and unchanged on stale edit", async f =>
+        {
+            var r = await Create(f, "AUDIT", f.BranchId);
+            var original = await Get(f, r);
+            var request = Edit(original) with { Notes = "audit note" };
+            var key = Fixture.Key();
+            var edited = await f.Service.CostCenter.EditCostCenter(f.CompanyId, r.ResourceId, f.Owner, key, request, default);
+            Ensure(await f.Service.CostCenter.EditCostCenter(f.CompanyId, r.ResourceId, f.Owner, key, request, default) == edited);
+            await Error("version_conflict", () => f.Service.CostCenter.EditCostCenter(f.CompanyId, r.ResourceId, f.Owner, Fixture.Key(), request, default));
+            var disabled = await Status(f, edited, false);
+            var history = await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, r.ResourceId, f.Owner, 0, 10, default);
+            Ensure(history.TotalCount == 3 && history.Items.All(x => x.CompanyId == f.CompanyId &&
+                x.ResourceId == r.ResourceId && x.ActorId == f.Owner.Subject && x.OccurredAt == new FixedClock().UtcNow));
+            Ensure(history.Items.Select(x => x.Action).ToHashSet().SetEquals(new[] { "cost-center.created", "cost-center.edited", "cost-center.status-changed" }));
+            var pages = new List<Guid>();
+            for (var offset = 0; offset < 3; offset++)
+            {
+                var page = await f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, r.ResourceId, f.Owner, offset, 1, default);
+                Ensure(page.TotalCount == 3);
+                pages.Add(page.Items.Single().Id);
+            }
+            Ensure(pages.SequenceEqual(history.Items.Select(x => x.Id)));
+            Ensure((await Get(f, disabled)).Revision == 3);
+            await Error("permission_denied", () => f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, r.ResourceId, f.Clerk, 0, 10, default));
+            var scoped = new Actor("cost-audit-scoped");
+            await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(),
+                new(scoped.Subject, new[] { Permissions.Read, Permissions.Audit }, false, new[] { f.OtherBranchId }, null), default);
+            await Error("all_branches_required", () => f.Service.CostCenter.ListCostCenterAudit(f.CompanyId, r.ResourceId, scoped, 0, 10, default));
+            var other = Guid.NewGuid();
+            await f.Service.Company.CreateCompany(f.Owner, Fixture.Key(), new(other, "OTHER", "أخرى", "YE", "SAR", 2, Fixture.Profile()), default);
+            await Error("reference_not_found", () => f.Service.CostCenter.ListCostCenterAudit(other, r.ResourceId, f.Owner, 0, 10, default));
+        });
         test("COST01: foreign-company parent and responsible member cannot be referenced", async f =>
         {
             var cid = Guid.NewGuid(); await f.Service.Company.CreateCompany(f.Owner, Fixture.Key(), new(cid, "OTHER", "أخرى", "YE", "SAR", 2, Fixture.Profile()), default);
