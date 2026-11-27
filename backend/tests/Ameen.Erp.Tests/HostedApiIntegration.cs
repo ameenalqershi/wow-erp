@@ -557,6 +557,43 @@ public static class HostedApiIntegration
                 using (var deniedDrill = await client.GetAsync(missingDrill))
                     Ensure(deniedDrill.StatusCode == HttpStatusCode.Forbidden, "RPT01 drilldown bypassed tenant authorization");
                 Authenticate(Token("sql-approver"));
+                var printScope = trialPath.Split('?')[1] + "&showZero=false";
+                var trialPrintPath = $"/api/v1/companies/{companyId}/reports/trial-balance/print?{printScope}";
+                var beforeTrialPrint = await ReadOnlyCounts(connection, companyId);
+                Authenticate(Token(sourceReader));
+                using (var printed = await client.GetAsync(trialPrintPath))
+                using (var reportResponse = await client.GetAsync(trialPath + "&showZero=false"))
+                {
+                    printed.EnsureSuccessStatusCode(); reportResponse.EnsureSuccessStatusCode();
+                    var html = await printed.Content.ReadAsStringAsync();
+                    var report = JsonSerializer.Deserialize<TrialBalanceResult>(
+                        await reportResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    Ensure(printed.Content.Headers.ContentType?.MediaType == "text/html" &&
+                        printed.Headers.TryGetValues("Cache-Control", out var cachePrint) &&
+                        cachePrint.Any(x => x.Contains("no-store")) &&
+                        printed.Headers.TryGetValues("Content-Security-Policy", out var printPolicy) &&
+                        printPolicy.Any(x => x.Contains("default-src 'none'")) &&
+                        html.Contains("ميزان المراجعة") && html.Contains(report.Currency) &&
+                        html.Contains("وقت الاستخراج UTC") && html.Contains(companyId.ToString()),
+                        "RPT01 print missing protected metadata");
+                    string Amounts(params decimal[] values) => string.Concat(values.Select(x =>
+                        "<td class=\"num\">" + x.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture) + "</td>"));
+                    foreach (var row in report.Rows)
+                        Ensure(html.Contains("<tr><td>" + System.Net.WebUtility.HtmlEncode(row.Code) + "</td><td>" +
+                            System.Net.WebUtility.HtmlEncode(row.Name) + "</td>" +
+                            Amounts(row.OpeningDebit,row.OpeningCredit,row.PeriodDebit,row.PeriodCredit,row.ClosingDebit,row.ClosingCredit)),
+                            "RPT01 print row differs from JSON");
+                    Ensure(html.Contains(Amounts(report.TotalOpeningDebit,report.TotalOpeningCredit,report.TotalPeriodDebit,
+                        report.TotalPeriodCredit,report.TotalClosingDebit,report.TotalClosingCredit)), "RPT01 print totals differ");
+                }
+                using (var invalidPrint = await client.GetAsync(trialPrintPath.Replace("to=2026-12-31","to=2025-12-31")))
+                    Ensure(invalidPrint.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT01 print accepted invalid dates");
+                Authenticate(Token("rpt01-nonmember"));
+                using (var deniedPrint = await client.GetAsync(trialPrintPath))
+                    Ensure(deniedPrint.StatusCode == HttpStatusCode.Forbidden, "RPT01 print leaked to nonmember");
+                Authenticate(Token("sql-approver"));
+                Ensure(beforeTrialPrint == await ReadOnlyCounts(connection, companyId), "RPT01 print created command effects");
+                Console.WriteLine("  HOST PASS RPT01-OP04 printed rows and totals equal JSON, protected metadata and tenant denial");
                 Console.WriteLine("  HOST PASS RPT01-OP03 grouped trial balance drilldown to posting accounts and ledger; scoped JWT and rejection");
                 Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");

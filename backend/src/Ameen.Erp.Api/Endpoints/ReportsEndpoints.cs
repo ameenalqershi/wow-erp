@@ -24,6 +24,19 @@ internal static class ReportsEndpoints
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
             .Produces<TrialBalanceResult>().RequireAuthorization().WithTags("RPT01 Trial balance");
+        app.MapGet(p + "/reports/trial-balance/print", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero,
+            ReportService s, HttpContext h, CancellationToken ct) =>
+        {
+            var document = await s.TrialBalancePrint(companyId, Actor(h), Date(from), Date(to),
+                branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds);
+            h.Response.Headers["Cache-Control"] = "no-store, private";
+            h.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            h.Response.Headers["X-Frame-Options"] = "DENY";
+            h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+            return Results.Content(TrialBalancePrintHtml.Render(document), "text/html; charset=utf-8");
+        }).Produces(StatusCodes.Status200OK, contentType: "text/html")
+          .RequireAuthorization().WithTags("RPT01 Trial balance");
         app.MapGet(p + "/reports/trial-balance/{accountId:guid}/drilldown", async (Guid companyId, Guid accountId,
             [FromQuery] string from, [FromQuery] string to, Guid? branchId, [FromQuery] Guid[]? branchIds,
             Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
