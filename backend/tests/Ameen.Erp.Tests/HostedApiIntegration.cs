@@ -595,6 +595,42 @@ public static class HostedApiIntegration
                 Ensure(beforeTrialPrint == await ReadOnlyCounts(connection, companyId), "RPT01 print created command effects");
                 Console.WriteLine("  HOST PASS RPT01-OP04 printed rows and totals equal JSON, protected metadata and tenant denial");
                 Console.WriteLine("  HOST PASS RPT01-OP03 grouped trial balance drilldown to posting accounts and ledger; scoped JWT and rejection");
+                // RPT01-OP05: a scoped export-only grant in addition to reading.
+                var trialExporter = "rpt01-scoped-exporter";
+                Authenticate(Token("sql-clerk"));
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest(trialExporter, new[] { Permissions.Read, Permissions.TrialBalanceExport },
+                        false, new[] { journalRequest.BranchId }, null));
+                var exportPath = trialPath.Replace("/trial-balance?", "/trial-balance/export?") + "&showZero=false&accountLevel=1";
+                var beforeExport = await ReadOnlyCounts(connection, companyId);
+                Authenticate(Token(sourceReader));
+                using (var readOnlyExport = await client.GetAsync(exportPath))
+                    Ensure(readOnlyExport.StatusCode == HttpStatusCode.Forbidden, "RPT01 read permission granted export");
+                Authenticate(Token(trialExporter));
+                using (var exported = await client.GetAsync(exportPath))
+                using (var sourceReport = await client.GetAsync(trialPath + "&showZero=false&accountLevel=1"))
+                {
+                    exported.EnsureSuccessStatusCode(); sourceReport.EnsureSuccessStatusCode();
+                    Ensure(exported.Content.Headers.ContentType?.MediaType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
+                        exported.Content.Headers.ContentDisposition?.FileName?.Contains("trial-balance.xlsx") == true &&
+                        exported.Headers.TryGetValues("Cache-Control", out var exportCache) && exportCache.Any(x => x.Contains("no-store")),
+                        "RPT01 export attachment or privacy contract differs");
+                    var expectedExport = JsonSerializer.Deserialize<TrialBalanceResult>(
+                        await sourceReport.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    TrialBalanceExportTests.AssertWorkbook(await exported.Content.ReadAsByteArrayAsync(), expectedExport);
+                }
+                using (var invalidExport = await client.GetAsync(exportPath.Replace("to=2026-12-31", "to=2025-12-31")))
+                    Ensure(invalidExport.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT01 export accepted invalid dates");
+                Authenticate(Token("rpt01-export-outsider"));
+                using (var deniedExport = await client.GetAsync(exportPath))
+                    Ensure(deniedExport.StatusCode == HttpStatusCode.Forbidden, "RPT01 export disclosed company report");
+                Authenticate(Token("sql-approver"));
+                Ensure(await ReadOnlyCounts(connection, companyId) == (beforeExport.Journals, beforeExport.Audits + 1,
+                    beforeExport.Receipts, beforeExport.Outbox), "RPT01 export accounting or audit effect mismatch");
+                await using (var exportDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await exportDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt01.export" && x.ActorId == trialExporter) == 1, "RPT01 export SQL audit missing");
+                Console.WriteLine("  HOST PASS RPT01-OP05 Excel rows and totals, scoped permission and audited extraction");
                 Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");
                 Ensure(hierarchy.StatusCode == HttpStatusCode.OK, "Production report filters failed");

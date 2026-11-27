@@ -522,8 +522,8 @@ for n, binding in {
 MAP["CASH11"]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/"+name
     for name in ["CashCountFoundationTests.cs", "CashCountSqlIntegration.cs", "SqlIntegration.cs"])
 
-screen("RPT01", "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print",
-       "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات", "طرق عرض العملات ومستوى التفصيل والتصدير وتحسين أحجام كبيرة",
+screen("RPT01", "GET /companies/{companyId}/reports/trial-balance; GET /companies/{companyId}/reports/trial-balance/{accountId}/drilldown; GET /companies/{companyId}/reports/trial-balance/print; GET /companies/{companyId}/reports/trial-balance/export",
+       "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج؛ حفر الصف المجمع إلى الحسابات التفصيلية المطابقة ثم الأستاذ؛ معاينة طباعة وظيفية بنفس المرشحات؛ تصدير Excel بنفس المرشحات وصلاحية مستقلة وأثر استخراج", "طرق عرض العملات ومستوى التفصيل وتحسين أحجام كبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth)", 10: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 11: "query.showZero"})
 screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
        "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع؛ عرض صفحات ثابتة المجاميع مع حفظ رصيد الفترة الخالية من الحركة", "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
