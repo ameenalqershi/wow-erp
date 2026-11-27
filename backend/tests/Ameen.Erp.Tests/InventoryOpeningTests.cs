@@ -4,7 +4,7 @@ namespace Ameen.Erp.Tests;
 public static class InventoryOpeningTests
 {
     public static Actor Writer { get; } = new("stock-writer");
-    public static async Task<CreateInventoryOpeningRequest> Setup(Fixture f, ItemTracking tracking = ItemTracking.None)
+    public static async Task<CreateInventoryOpeningRequest> Setup(Fixture f, ItemTracking tracking = ItemTracking.None, string identityNumber = "ID-1")
     {
         await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(Writer.Subject, new[] { Permissions.Read, Permissions.InventoryWrite, Permissions.InventoryApprove }, true, Array.Empty<Guid>(), null), default);
         var itemRequest = (await ItemTests.Setup(f)) with { Tracking = tracking };
@@ -12,7 +12,7 @@ public static class InventoryOpeningTests
         Guid? identity = null;
         if (tracking != ItemTracking.None)
         {
-            var r = new CreateInventoryIdentityRequest("ID-1", "هوية", null, null, InventoryQualityStatus.Available);
+            var r = new CreateInventoryIdentityRequest(identityNumber, "هوية", null, null, InventoryQualityStatus.Available);
             identity = (tracking == ItemTracking.Lot
                 ? await f.Service.InventoryIdentity.CreateLot(f.CompanyId, item.ResourceId, f.Owner, Fixture.Key(), r, default)
                 : await f.Service.InventoryIdentity.CreateSerial(f.CompanyId, item.ResourceId, f.Owner, Fixture.Key(), r, default)).ResourceId;

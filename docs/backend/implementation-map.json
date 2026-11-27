@@ -2925,15 +2925,15 @@
         },
         "RPT09-F09": {
           "status": "implemented",
-          "binding": "route.itemId"
+          "binding": "route.itemId: company-scoped historical card"
         },
         "RPT09-F10": {
           "status": "implemented",
-          "binding": "query.warehouseId"
+          "binding": "query.warehouseId: authorized branch and company"
         },
         "RPT09-F11": {
           "status": "implemented",
-          "binding": "query.identityNumber (exact normalized lot or serial number)"
+          "binding": "query.identityNumber (exact normalized lot or serial number; leading zeros retained)"
         },
         "RPT09-F05": {
           "status": "partial",
