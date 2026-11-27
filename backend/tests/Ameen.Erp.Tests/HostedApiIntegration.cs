@@ -530,6 +530,34 @@ public static class HostedApiIntegration
                     Ensure(await printDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
                         x.Action == "report.rpt02.print" && x.ActorId == ledgerPrinter) == 2, "RPT02 SQL extraction actor/action mismatch");
                 Console.WriteLine("  HOST PASS RPT02-OP04 printed statement matches JSON and source, protected headers and tenant denial");
+                var rangeId = journalRequest.Lines[0].AccountId;
+                var rangePath = $"/api/v1/companies/{companyId}/reports/accounts/ledger-range?fromAccountId={rangeId}&toAccountId={rangeId}&" + gl03LedgerPath.Split('?')[1];
+                var beforeRange = await ReadOnlyCounts(connection, companyId);
+                using (var rangeResponse = await client.GetAsync(rangePath))
+                using (var singleResponse = await client.GetAsync(gl03LedgerPath))
+                {
+                    rangeResponse.EnsureSuccessStatusCode(); singleResponse.EnsureSuccessStatusCode();
+                    var range = JsonSerializer.Deserialize<AccountLedgerRangeResult>(
+                        await rangeResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var single = JsonSerializer.Deserialize<AccountLedgerResult>(
+                        await singleResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var summary = range.Accounts.Single();
+                    Ensure(range.FromAccountId == rangeId && range.ToAccountId == rangeId &&
+                        range.BranchIds.SequenceEqual(single.BranchIds) && range.ExternalReference == single.ExternalReference &&
+                        summary.AccountId == rangeId && summary.OpeningBalance == single.OpeningBalance &&
+                        summary.PeriodDebit == single.PeriodDebit && summary.PeriodCredit == single.PeriodCredit &&
+                        summary.ClosingBalance == single.ClosingBalance &&
+                        range.Entries.Items.Select(x => x.Entry).SequenceEqual(single.Entries.Items),
+                        "RPT02-FG03 range does not equal single-account SQL statement");
+                }
+                using (var missingRange = await client.GetAsync(rangePath.Replace("fromAccountId=" + rangeId, "fromAccountId=" + Guid.NewGuid())))
+                    Ensure(missingRange.StatusCode == HttpStatusCode.NotFound, "RPT02-FG03 accepted nonexistent endpoint");
+                Authenticate(Token("rpt02-range-outsider"));
+                using (var deniedRange = await client.GetAsync(rangePath))
+                    Ensure(deniedRange.StatusCode == HttpStatusCode.Forbidden, "RPT02-FG03 leaked range to nonmember");
+                Authenticate(Token(sourceReader));
+                Ensure(beforeRange == await ReadOnlyCounts(connection, companyId), "RPT02-FG03 range changed durable state");
+                Console.WriteLine("  HOST PASS RPT02-FG03 account range matches single SQL ledger, JWT scope and denial");
                 Console.WriteLine("  HOST PASS RPT02-OP02 stable display totals, empty and exhausted page, scoped JWT and invalid requests");
                 using (var missingSource = await client.GetAsync(path + $"/{Guid.NewGuid()}"))
                     Ensure(missingSource.StatusCode == HttpStatusCode.NotFound,

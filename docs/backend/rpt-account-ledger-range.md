@@ -1,0 +1,9 @@
+# RPT02-FG03 — account range (#2053)
+
+Sources: original [RPT02](../../muhaseb-erp-analysis/docs/modules/RPT.md), [navigation](../../muhaseb-erp-analysis/diagrams/source/module-RPT.mmd), [fields](../../muhaseb-erp-analysis/data/fields.csv), [report contract](../../muhaseb-erp-analysis/docs/08-reports-and-roadmap.md), BR02/BR18. F09/F10 are explicit company-scoped account references; F11/F12 reuse center and exact external-reference filters across opening and movement.
+
+GET /api/v1/companies/{companyId}/reports/accounts/ledger-range?fromAccountId=...&toAccountId=... uses inclusive ordinal account-code order, consistent with current trial-balance ordering. This is an implementation decision: the source does not specify collation. Both boundary cards must exist and be active; historical inactive posting accounts inside the interval are retained. Group boundary cards define code bounds, not a separate hierarchy traversal. No posting to group accounts or mixing running balances. One selected journal set supplies independently calculated account summaries and a bounded page of rows ordered by account code, accounting date, journal number, journal ID, line position. Both single-account and range calculations share CalculateLedger.
+
+Existing membership/branch scope is enforced; complete card-level policy (#2616) is still pending. Range printing/export and currency/state/detail choices (#2052), final concurrency acceptance (#2047) remain separate dependencies. No guarantee that separate HTTP requests share an immutable posting snapshot. No original analysis or schema change, no command effects. This is the range query foundation, not a final whole-screen acceptance.
+
+Validation: AccountLedgerRangeTests (multi-account, branch, historical opening, external reference, center, pagination, rejection), existing single-account tests, HostedApiIntegration (SQL/HTTPS/JWT parity with single account and denial), OpenAPI.
