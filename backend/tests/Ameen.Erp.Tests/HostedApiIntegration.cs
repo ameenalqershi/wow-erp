@@ -477,6 +477,38 @@ public static class HostedApiIntegration
                 using (var missingAccount = await client.GetAsync(gl03LedgerPath.Replace(
                     journalRequest.Lines[0].AccountId.ToString(), Guid.NewGuid().ToString())))
                     Ensure(missingAccount.StatusCode == HttpStatusCode.NotFound, "RPT02 returned nonexistent account");
+                var ledgerPrintPath = gl03LedgerPath.Replace("/ledger?", "/ledger/print?");
+                var beforeLedgerPrint = await ReadOnlyCounts(connection, companyId);
+                using (var printLedger = await client.GetAsync(ledgerPrintPath))
+                using (var ledgerJson = await client.GetAsync(gl03LedgerPath))
+                {
+                    printLedger.EnsureSuccessStatusCode(); ledgerJson.EnsureSuccessStatusCode();
+                    var html = await printLedger.Content.ReadAsStringAsync();
+                    var statement = JsonSerializer.Deserialize<AccountLedgerResult>(
+                        await ledgerJson.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var entry = statement.Entries.Items.Single();
+                    var numbers = string.Concat(new[] { entry.Debit, entry.Credit, entry.RunningBalance }.Select(x =>
+                        "<td class=\"num\">" + x.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture) + "</td>"));
+                    Ensure(printLedger.Content.Headers.ContentType?.MediaType == "text/html" &&
+                        printLedger.Headers.TryGetValues("Cache-Control", out var ledgerCache) && ledgerCache.Any(x => x.Contains("no-store")) &&
+                        printLedger.Headers.TryGetValues("Content-Security-Policy", out var ledgerPolicy) && ledgerPolicy.Any(x => x.Contains("default-src 'none'")) &&
+                        html.Contains("وقت الاستخراج UTC") && html.Contains(companyId.ToString()) && html.Contains("000070-PRINT") &&
+                        html.Contains(entry.JournalId.ToString()) && html.Contains(System.Net.WebUtility.HtmlEncode(entry.Number)) &&
+                        html.Contains(System.Net.WebUtility.HtmlEncode(entry.Description)) && html.Contains("<td>Manual</td>") &&
+                        html.Contains(entry.CurrencyCode) && html.Contains(numbers),
+                        "RPT02 print did not match JSON and source metadata");
+                }
+                using (var emptyPrint = await client.GetAsync(ledgerPrintPath.Replace("000070-PRINT", "NO-RPT02-MATCH")))
+                    Ensure(emptyPrint.StatusCode == HttpStatusCode.OK && !(await emptyPrint.Content.ReadAsStringAsync()).Contains("data-journal-id="),
+                        "RPT02 empty print included unrelated rows");
+                using (var invalidPrintPeriod = await client.GetAsync(ledgerPrintPath.Replace("to=2026-12-31", "to=2025-12-31")))
+                    Ensure(invalidPrintPeriod.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT02 print accepted invalid dates");
+                Authenticate(Token("rpt02-print-outsider"));
+                using (var deniedLedgerPrint = await client.GetAsync(ledgerPrintPath))
+                    Ensure(deniedLedgerPrint.StatusCode == HttpStatusCode.Forbidden, "RPT02 print disclosed unauthorized statement");
+                Authenticate(Token(sourceReader));
+                Ensure(beforeLedgerPrint == await ReadOnlyCounts(connection, companyId), "RPT02 print created command effects");
+                Console.WriteLine("  HOST PASS RPT02-OP04 printed statement matches JSON and source, protected headers and tenant denial");
                 Console.WriteLine("  HOST PASS RPT02-OP02 stable display totals, empty and exhausted page, scoped JWT and invalid requests");
                 using (var missingSource = await client.GetAsync(path + $"/{Guid.NewGuid()}"))
                     Ensure(missingSource.StatusCode == HttpStatusCode.NotFound,

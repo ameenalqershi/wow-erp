@@ -1,0 +1,7 @@
+# RPT02-OP04 — account ledger print (#2058)
+
+Original [RPT02](../../muhaseb-erp-analysis/docs/modules/RPT.md), [navigation](../../muhaseb-erp-analysis/diagrams/source/module-RPT.mmd), [field dictionary](../../muhaseb-erp-analysis/data/fields.csv), [report contract](../../muhaseb-erp-analysis/docs/08-reports-and-roadmap.md), BR02/BR18.
+
+GET /api/v1/companies/{companyId}/reports/accounts/{accountId}/ledger/print preserves F01–F04 and F11–F12: company, authorized branches, dates, cost center, external reference. F05–F08 explicitly display the currently supported functional currency/historical posted amounts, posted/reversed state, single-account line detail. F09–F10 are represented by the same single account route; account range and additional modes remain pending. The same materialized statement calculation supplies opening, ordered rows, debit/credit, running balance and closing. Source kind and center of each printed line are taken from its original journal/line, not inferred; original currency and source identity are retained. No pagination truncation or alternate accounting engine. The preview is HTML with encoded content, no-store, CSP and read authorization; no new fiscal template or export permission policy. Separate report requests can observe newer postings. No original analysis or schema changes.
+
+Evidence: AccountLedgerAcceptanceTests, HttpIntegration, HostedApiIntegration (real SQL and HTTPS/JWT), OpenAPI. Verify all rows, historical amounts, scope, missing/invalid input, and unchanged command effects before merge.

@@ -123,7 +123,17 @@ public sealed partial class ReportService : ApplicationService
     public async Task<AccountLedgerResult> AccountLedger(Guid cid, Guid accountId, Actor actor, DateOnly from,
         DateOnly to, Guid? branchId, int offset, int limit, CancellationToken ct, Guid? costCenterId = null, string? externalReference = null, Guid[]? branchIds = null)
     {
-        Paging(offset, limit); Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
+        Paging(offset, limit);
+        return (await BuildAccountLedger(cid, accountId, actor, from, to, branchId, offset, limit, ct,
+            costCenterId, externalReference, branchIds)).Report;
+    }
+
+    // A null limit is internal to print preview; public paging stays bounded.
+    private async Task<(AccountLedgerResult Report, IReadOnlyList<AccountLedgerPrintRow> PrintRows)> BuildAccountLedger(
+        Guid cid, Guid accountId, Actor actor, DateOnly from, DateOnly to, Guid? branchId,
+        int offset, int? limit, CancellationToken ct, Guid? costCenterId, string? externalReference, Guid[]? branchIds)
+    {
+        Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
         var branches = await ReportBranches(cid, actor, branchId, branchIds, costCenterId, ct);
         externalReference = string.IsNullOrWhiteSpace(externalReference) ? null : Check.Text(externalReference, "المرجع الخارجي", 100);
         await Required<Account>(cid, accountId, ct);
@@ -137,14 +147,19 @@ public sealed partial class ReportService : ApplicationService
                 .OrderBy(l => l.Position).Select(l => (Journal: j, Line: l))).ToArray();
         var opening = items.Where(x => x.Journal.AccountingDate < from).Sum(x => x.Line.FunctionalDebit - x.Line.FunctionalCredit);
         var running = opening; var rows = new List<LedgerRow>();
+        var printRows = new List<AccountLedgerPrintRow>();
         foreach (var (journal, line) in items.Where(x => x.Journal.AccountingDate >= from))
         {
             running += line.FunctionalDebit - line.FunctionalCredit;
-            rows.Add(new(journal.Id, journal.Number, journal.AccountingDate, line.Position, line.Description,
-                line.FunctionalDebit, line.FunctionalCredit, running, line.CurrencyCode, line.Debit, line.Credit, line.ExchangeRate));
+            var row = new LedgerRow(journal.Id, journal.Number, journal.AccountingDate, line.Position, line.Description,
+                line.FunctionalDebit, line.FunctionalCredit, running, line.CurrencyCode, line.Debit, line.Credit, line.ExchangeRate);
+            rows.Add(row);
+            if (limit is null)
+                printRows.Add(new(row, journal.Source.ToString(), line.CostCenterId));
         }
-        return new(accountId, company.FunctionalCurrency, from, to, opening, running,
-            rows.Sum(x => x.Debit), rows.Sum(x => x.Credit), new(rows.Skip(offset).Take(limit).ToArray(), rows.Count, offset, limit),
-            cid, branches, costCenterId, externalReference);
+        return (new(accountId, company.FunctionalCurrency, from, to, opening, running,
+            rows.Sum(x => x.Debit), rows.Sum(x => x.Credit),
+            new(rows.Skip(offset).Take(limit ?? rows.Count).ToArray(), rows.Count, offset, limit ?? rows.Count),
+            cid, branches, costCenterId, externalReference), printRows);
     }
 }

@@ -55,6 +55,19 @@ public static class AccountLedgerAcceptanceTests
                 page.OpeningBalance != 40 || page.ClosingBalance != 45)
                 throw new Exception("RPT02 pagination changed the source line, balance or totals");
         }
+        // RPT02-OP04: one materialized statement, not a succession of page reads.
+        var print = await f.Service.Report.AccountLedgerPrint(f.CompanyId, f.CashId, f.Clerk, date, date, null, default);
+        if (!print.Rows.Select(x => x.Entry).SequenceEqual(rows) ||
+            print.Rows.Any(x => x.Source != "Manual") ||
+            print.Report.OpeningBalance != 40 || print.Report.ClosingBalance != 45 ||
+            print.Report.PeriodDebit != 10 || print.Report.PeriodCredit != 5 ||
+            print.BranchNames.Count != 2 || print.AccountCode != "1101")
+            throw new Exception("RPT02 print omitted rows or changed statement");
+        var restrictedPrint = await f.Service.Report.AccountLedgerPrint(f.CompanyId, f.CashId, f.Limited,
+            date, date, null, default);
+        if (restrictedPrint.Rows.Count != 2 || restrictedPrint.Rows.Any(x => x.Entry.JournalId != z.ResourceId) ||
+            restrictedPrint.Report.ClosingBalance != 50 || restrictedPrint.BranchNames.Count != 1)
+            throw new Exception("RPT02 print leaked another branch");
         // RPT02-OP02: an exhausted page must retain full scope and totals,
         // not reset the running balance to zero or hide prior movements.
         var exhausted = await Page(f.Clerk, 3, 1);
