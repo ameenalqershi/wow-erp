@@ -1,0 +1,7 @@
+# RPT01-OP04 — print preview (#2043)
+
+Sources: original RPT01 in [module](../../muhaseb-erp-analysis/docs/modules/RPT.md), [diagram](../../muhaseb-erp-analysis/diagrams/source/module-RPT.mmd), [fields](../../muhaseb-erp-analysis/data/fields.csv), [report contract](../../muhaseb-erp-analysis/docs/08-reports-and-roadmap.md).
+
+GET /api/v1/companies/{companyId}/reports/trial-balance/print reuses TrialBalance, never a second accounting engine. F01-F04 company, branch and inclusive dates; F05-F08 existing functional-currency, historical posted/reversed and detail mode are explicitly displayed (selection of other modes remains pending); F09-F11 hierarchy, center and zero display retain their existing query contract. All original output columns and six totals are rendered without currency conversion or rounding beyond the exact stored values. Header includes extraction time UTC and authorized branch names. HTML encoding, CSP, no-store and tenant/branch authorization follow existing journal preview conventions. No command or posting effect. Print layout is browser HTML preview, not a certified fiscal template. Separate requests can observe newer postings; no cross-request snapshot guarantee.
+
+Validation: existing RPT01 acceptance suite and new production HTTPS/JWT/SQL assertions compare every printed row and totals against JSON; invalid period and nonmember rejection; read-only counts. Original diagram/fields remain unchanged.
