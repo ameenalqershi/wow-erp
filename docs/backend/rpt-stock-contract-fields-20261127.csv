@@ -1,0 +1,37 @@
+contract,screen_id,field_id,original_name,original_requirement,implementation_status_at_audit,binding_at_audit,api_at_audit
+RC09,RPT08,RPT08-F01,الشركة,محسوب/نظام,implemented,CompanyId,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F02,الفروع المصرح بها,إلزامي,implemented,query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F03,من تاريخ,إلزامي,implemented,query.from,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F04,إلى تاريخ,إلزامي,implemented,query.to,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F05,عملة العرض,إلزامي,partial,Currency: functional currency only,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F06,طريقة عرض العملات,إلزامي,pending,,
+RC09,RPT08,RPT08-F07,حالة المستندات,إلزامي,partial,StockMovement: posted openings and reversals only,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F08,مستوى التفصيل,إلزامي,pending,,
+RC09,RPT08,RPT08-F09,حتى تاريخ,إلزامي,partial,"query.to: shared inclusive cutoff, no separate third date",GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F10,المخزن,اختياري,implemented,query.warehouseId,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F11,المجموعة,اختياري,implemented,query.groupId (current item group),GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F12,الصنف,اختياري,implemented,query.itemId,GET /companies/{companyId}/reports/inventory-balances
+RC09,RPT08,RPT08-F13,تضمين الطريق والعزل,إلزامي,pending,,
+RC09,RPT09,RPT09-F01,الشركة,محسوب/نظام,implemented,CompanyId,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F02,الفروع المصرح بها,إلزامي,implemented,query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F03,من تاريخ,إلزامي,implemented,query.from,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F04,إلى تاريخ,إلزامي,implemented,query.to,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F05,عملة العرض,إلزامي,partial,Currency: functional currency only,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F06,طريقة عرض العملات,إلزامي,pending,,
+RC09,RPT09,RPT09-F07,حالة المستندات,إلزامي,partial,StockMovement: posted openings and reversals only,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F08,مستوى التفصيل,إلزامي,pending,,
+RC09,RPT09,RPT09-F09,الصنف,إلزامي,implemented,route.itemId: company-scoped historical card,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F10,المخزن,اختياري,implemented,query.warehouseId: authorized branch and company,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC09,RPT09,RPT09-F11,الدفعة أو التسلسل,اختياري,implemented,query.identityNumber (exact normalized lot or serial number; leading zeros retained),GET /companies/{companyId}/reports/items/{itemId}/ledger
+RC10,RPT10,RPT10-F01,الشركة,محسوب/نظام,pending,,
+RC10,RPT10,RPT10-F02,الفروع المصرح بها,إلزامي,pending,,
+RC10,RPT10,RPT10-F03,من تاريخ,إلزامي,pending,,
+RC10,RPT10,RPT10-F04,إلى تاريخ,إلزامي,pending,,
+RC10,RPT10,RPT10-F05,عملة العرض,إلزامي,pending,,
+RC10,RPT10,RPT10-F06,طريقة عرض العملات,إلزامي,pending,,
+RC10,RPT10,RPT10-F07,حالة المستندات,إلزامي,pending,,
+RC10,RPT10,RPT10-F08,مستوى التفصيل,إلزامي,pending,,
+RC10,RPT10,RPT10-F09,المخزن,اختياري,pending,,
+RC10,RPT10,RPT10-F10,أيام دون حركة,إلزامي,pending,,
+RC10,RPT10,RPT10-F11,أفق الانتهاء بالأيام,إلزامي,pending,,
+RC10,RPT10,RPT10-F12,تضمين الأوامر المفتوحة,إلزامي,pending,,
