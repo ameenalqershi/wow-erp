@@ -11,14 +11,14 @@ internal static class ReportsEndpoints
     {
         const string p = EndpointRoutes.Company;
         app.MapGet(p + "/reports/inventory-balances", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, Guid? warehouseId, Guid? groupId, Guid? itemId, bool? showZero, int? offset, int? limit,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, Guid? groupId, Guid? itemId, bool? showZero, int? offset, int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>
-            Results.Ok(await s.InventoryBalances(companyId, Actor(h), Date(from), Date(to), branchId, warehouseId, groupId, itemId, showZero ?? true, offset ?? 0, limit ?? 50, ct)))
+            Results.Ok(await s.InventoryBalances(companyId, Actor(h), Date(from), Date(to), branchId, warehouseId, groupId, itemId, showZero ?? true, offset ?? 0, limit ?? 50, ct, branchIds)))
             .Produces<InventoryBalanceResult>().RequireAuthorization().WithTags("RPT08 Inventory balances");
         app.MapGet(p + "/reports/items/{itemId:guid}/ledger", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
-            Guid? branchId, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>
-            Results.Ok(await s.InventoryLedger(companyId, itemId, Actor(h), Date(from), Date(to), branchId, warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct)))
+            Results.Ok(await s.InventoryLedger(companyId, itemId, Actor(h), Date(from), Date(to), branchId, warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct, branchIds)))
             .Produces<InventoryLedgerResult>().RequireAuthorization().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/trial-balance", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>

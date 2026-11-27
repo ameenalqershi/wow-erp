@@ -526,17 +526,17 @@ screen("RPT01", "GET /companies/{companyId}/reports/trial-balance",
        "أول المدة والحركة وآخرها بالوظيفية؛ تجميع مستوى الدليل ومرشح المركز وإخفاء الصفري دون ازدواج", "طرق عرض العملات ومستوى التفصيل والطباعة والتصدير وتحسين أحجام كبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "query.accountLevel (null = posting leaves; 1..20 = maximum displayed depth)", 10: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 11: "query.showZero"})
 screen("RPT02", "GET /companies/{companyId}/reports/accounts/{accountId}/ledger",
-       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة", "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
+       "حساب واحد؛ الرصيد الجاري من القيود ذات الأثر المرحل، مرتب بتاريخ الأثر ثم رقم القيد وموضع السطر قبل التقسيم إلى صفحات؛ مرشح المركز والمرجع يشمل الافتتاح والحركة؛ الحفر إلى القيد عبر JournalId وموضع السطر ضمن صلاحية القراءة والفرع", "نطاق حسابات وتصدير وطباعة وطرق عرض إضافية",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 11: "query.costCenterId: active choices via cost-centers/search?isActive=true; scoped historical reads", 12: "query.externalReference (exact case-sensitive match)"})
 
 screen("RPT08", "GET /companies/{companyId}/reports/inventory-balances",
        "رصيد وحركة وقيمة افتتاح المخزون وعكسه حسب المخزن والصنف والهوية والرقابة؛ إجماليات قبل الصفحات وعزل الفروع",
        "افتتاح وعكسه فقط؛ لا حجز/متاح/طريق/عزل ولا محرك تكلفة أو مطابقة رقابة آلية عامة؛ لا عملة عرض أو طباعة أو تصدير؛ حتى تاريخ يستخدم to نفسه؛ التجميع ثابت",
-       {1: "CompanyId", 2: "BranchIds: authorized scope; optional branchId", 3: "query.from", 4: "query.to", 10: "query.warehouseId", 11: "query.groupId (current item group)", 12: "query.itemId"})
+       {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 10: "query.warehouseId", 11: "query.groupId (current item group)", 12: "query.itemId"})
 screen("RPT09", "GET /companies/{companyId}/reports/items/{itemId}/ledger",
        "حركة افتتاح وعكس بوحدة أساسية ورصيد جارٍ عبر الصفحات؛ وحدات وتكلفة سطور المصدر التاريخية وروابط المستند والقيد؛ ترتيب تاريخ الأثر ووقت الترحيل",
        "المصادر الحالية افتتاح وعكسه فقط؛ لا صرف/استلام/تحويل؛ لا عملة عرض أو طباعة أو تصدير؛ التفصيل ثابت؛ تجميع القراءة في الذاكرة يحتاج تحسينًا للأحجام الكبيرة",
-       {1: "CompanyId", 2: "BranchIds: authorized scope; optional branchId", 3: "query.from", 4: "query.to", 9: "route.itemId", 10: "query.warehouseId", 11: "query.identityNumber (exact normalized lot or serial number)"})
+       {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "route.itemId", 10: "query.warehouseId", 11: "query.identityNumber (exact normalized lot or serial number)"})
 for report in ["RPT01", "RPT02"]:
     names = ["Program.cs", "ReportBranchSelectionTests.cs", "HttpIntegration.cs", "OpenApiSnapshotTests.cs", "HostedApiIntegration.cs"]
     names.append("AccountLedgerAcceptanceTests.cs")
