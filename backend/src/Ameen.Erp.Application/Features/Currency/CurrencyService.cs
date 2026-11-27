@@ -28,8 +28,9 @@ public sealed class CurrencyService : ApplicationService
             {
                 var usage = await CurrencyReferences(cid, currency, token);
                 Check.That(!usage.IsFunctionalCurrency, "functional_currency_scale_fixed", "دقة العملة الوظيفية تتبع إعداد الشركة ولا تعدل من بطاقة العملة.", ErrorKind.Conflict);
-                Check.That(usage.AccountCount + usage.ExchangeRateCount + usage.JournalCount + usage.RecurringTemplateCount == 0,
-                    "currency_precision_in_use", "لا يمكن تغيير دقة عملة مستخدمة في حساب أو سعر أو قيد أو قالب.", ErrorKind.Conflict);
+                Check.That(usage.AccountCount + usage.ExchangeRateCount + usage.JournalCount + usage.RecurringTemplateCount == 0 &&
+                    !(await store.Find<CashBox>(cid, x => x.CurrencyCode == currency.Code, token)).Any(),
+                    "currency_precision_in_use", "لا يمكن تغيير دقة عملة مستخدمة في حساب أو سعر أو قيد أو قالب أو صندوق.", ErrorKind.Conflict);
             }
             var before = CurrencySnapshot(currency);
             currency.Configure(request.Scale, request.Name, request.EnglishName, request.Notes, request.DisplaySymbol, request.FractionName);
