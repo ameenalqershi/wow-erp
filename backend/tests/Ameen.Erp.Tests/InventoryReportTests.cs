@@ -136,6 +136,46 @@ public static class InventoryReportTests
             await Reject("branch_inactive", f.Owner, selected);
             await Compare(f.Owner, null, [f.BranchId, f.OtherBranchId, third.ResourceId], 10.5m);
         });
+        foreach (var tracking in new[] { ItemTracking.Lot, ItemTracking.Serial })
+        test($"RPT09 FG03/OP03: {tracking} exact identity, historical source and protected drill-through", async f =>
+        {
+            var (request, approved) = await InventoryOpeningPostingTests.Setup(f, tracking, "00017");
+            var posted = await InventoryOpeningPostingTests.Post(f, approved, await InventoryOpeningPostingTests.Plan(f, approved));
+            var item = request.Lines.Single().ItemId;
+            var original = await Ledger(f, item, identity: " 00017 ");
+            var row = original.Rows.Items.Single();
+            Ensure(row.IdentityId == request.Lines.Single().IdentityId &&
+                (row.LotNumber ?? row.SerialNumber) == "00017" && row.OpeningId == posted.ResourceId);
+            Ensure((await Ledger(f, item, identity: "17")).Rows.TotalCount == 0);
+            Ensure((await Ledger(f, item, identity: "000170")).Rows.TotalCount == 0);
+            await Error("reference_not_found", () => Ledger(f, Guid.NewGuid()));
+            await Error("reference_not_found", () => f.Service.Report.InventoryLedger(f.CompanyId, item, f.Owner,
+                Fixture.Date, Fixture.Date, null, Guid.NewGuid(), null, 0, 10, default));
+            await Reverse(f, posted, Fixture.Date.AddDays(1));
+            var reversal = (await Ledger(f, item, to: Fixture.Date.AddDays(1), offset: 1, identity: "00017")).Rows.Items.Single();
+            var counts = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            foreach (var movement in new[] { row, reversal })
+            {
+                var source = await f.Service.InventoryOpening.Get(f.CompanyId, movement.OpeningId, f.Owner, default);
+                var journal = await f.Service.Journal.GetJournal(f.CompanyId, movement.JournalId, f.Owner, default);
+                var saved = source.Lines.Single();
+                Ensure(source.Number == movement.DocumentNumber && source.WarehouseId == movement.WarehouseId &&
+                    source.JournalId == journal.Id && journal.InventoryOpeningId == source.Id &&
+                    saved.ItemId == item && saved.IdentityId == movement.IdentityId &&
+                    saved.UnitId == movement.DocumentUnits.Single().UnitId &&
+                    saved.UnitCost == movement.DocumentUnits.Single().UnitCost &&
+                    movement.InValue + movement.OutValue == saved.Value &&
+                    journal.Lines.Sum(x => x.FunctionalDebit) == saved.Value &&
+                    journal.Lines.Sum(x => x.FunctionalCredit) == saved.Value);
+                var outsider = new Actor("rpt09-no-membership");
+                await Error("permission_denied", () => f.Service.InventoryOpening.Get(f.CompanyId, movement.OpeningId, outsider, default));
+                await Error("permission_denied", () => f.Service.Journal.GetJournal(f.CompanyId, movement.JournalId, outsider, default));
+            }
+            Ensure(reversal.ReversesMovementId == row.MovementId && reversal.RunningQuantity == 0 && reversal.RunningValue == 0);
+            Ensure(counts == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));

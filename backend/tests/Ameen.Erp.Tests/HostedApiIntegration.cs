@@ -1231,6 +1231,40 @@ public static class HostedApiIntegration
                         HttpStatusCode.UnprocessableEntity, "ambiguous_branch_filter");
                     await RejectInventoryFilter($"&branchIds={Guid.NewGuid()}", HttpStatusCode.NotFound, "reference_not_found");
                 }
+                var rpt09LedgerUrl = $"/api/v1/companies/{companyId}/reports/items/{openingItem.ResourceId}/ledger?from=2026-01-01&to=2026-12-31&warehouseId={openingWarehouse.ResourceId}";
+                using (var sourceResponse = await client.GetAsync(rpt09LedgerUrl))
+                using (var ledgerJson = JsonDocument.Parse(await sourceResponse.Content.ReadAsStringAsync()))
+                {
+                    sourceResponse.EnsureSuccessStatusCode();
+                    var sourceRows = ledgerJson.RootElement.GetProperty("rows").GetProperty("items").EnumerateArray().ToArray();
+                    Ensure(sourceRows.Length == 2, "RPT09 expected original and reversal source rows");
+                    foreach (var movement in sourceRows)
+                    {
+                        var sourceId = movement.GetProperty("openingId").GetGuid();
+                        var sourceJournalId = movement.GetProperty("journalId").GetGuid();
+                        var sourceUrl = openingsPath + $"/{sourceId}";
+                        var sourceJournalUrl = $"/api/v1/companies/{companyId}/journals/{sourceJournalId}";
+                        using var openingDetail = await client.GetAsync(sourceUrl);
+                        using var journalDetail = await client.GetAsync(sourceJournalUrl);
+                        openingDetail.EnsureSuccessStatusCode(); journalDetail.EnsureSuccessStatusCode();
+                        using var sourceData = JsonDocument.Parse(await openingDetail.Content.ReadAsStringAsync());
+                        using var journalData = JsonDocument.Parse(await journalDetail.Content.ReadAsStringAsync());
+                        Ensure(sourceData.RootElement.GetProperty("journalId").GetGuid() == sourceJournalId &&
+                            sourceData.RootElement.GetProperty("number").GetString() == movement.GetProperty("documentNumber").GetString() &&
+                            journalData.RootElement.GetProperty("inventoryOpeningId").GetGuid() == sourceId,
+                            "RPT09 source references do not round-trip");
+                        Authenticate(Token("audit-no-membership"));
+                        using var rpt09ForbiddenOpening = await client.GetAsync(sourceUrl);
+                        using var rpt09ForbiddenJournal = await client.GetAsync(sourceJournalUrl);
+                        Ensure(rpt09ForbiddenOpening.StatusCode == HttpStatusCode.Forbidden && rpt09ForbiddenJournal.StatusCode == HttpStatusCode.Forbidden,
+                            "RPT09 source drill-through leaked across membership");
+                        Authenticate(Token("sql-owner"));
+                    }
+                }
+                using (var noIdentity = await client.GetAsync(rpt09LedgerUrl + "&identityNumber=00017"))
+                using (var noIdentityJson = JsonDocument.Parse(await noIdentity.Content.ReadAsStringAsync()))
+                    Ensure(noIdentity.StatusCode == HttpStatusCode.OK && noIdentityJson.RootElement.GetProperty("rows").GetProperty("totalCount").GetInt32() == 0,
+                        "RPT09 identity filter must exclude untracked stock");
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
 

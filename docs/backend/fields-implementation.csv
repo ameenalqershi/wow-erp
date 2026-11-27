@@ -2697,9 +2697,9 @@ RPT09,RPT09-F05,عملة العرض,required,partial,Currency: functional curren
 RPT09,RPT09-F06,طريقة عرض العملات,required,pending,,
 RPT09,RPT09-F07,حالة المستندات,required,partial,StockMovement: posted openings and reversals only,GET /companies/{companyId}/reports/items/{itemId}/ledger
 RPT09,RPT09-F08,مستوى التفصيل,required,pending,,
-RPT09,RPT09-F09,الصنف,required,implemented,route.itemId,GET /companies/{companyId}/reports/items/{itemId}/ledger
-RPT09,RPT09-F10,المخزن,optional,implemented,query.warehouseId,GET /companies/{companyId}/reports/items/{itemId}/ledger
-RPT09,RPT09-F11,الدفعة أو التسلسل,optional,implemented,query.identityNumber (exact normalized lot or serial number),GET /companies/{companyId}/reports/items/{itemId}/ledger
+RPT09,RPT09-F09,الصنف,required,implemented,route.itemId: company-scoped historical card,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RPT09,RPT09-F10,المخزن,optional,implemented,query.warehouseId: authorized branch and company,GET /companies/{companyId}/reports/items/{itemId}/ledger
+RPT09,RPT09-F11,الدفعة أو التسلسل,optional,implemented,query.identityNumber (exact normalized lot or serial number; leading zeros retained),GET /companies/{companyId}/reports/items/{itemId}/ledger
 RPT10,RPT10-F01,الشركة,system,pending,,
 RPT10,RPT10-F02,الفروع المصرح بها,required,pending,,
 RPT10,RPT10-F03,من تاريخ,required,pending,,

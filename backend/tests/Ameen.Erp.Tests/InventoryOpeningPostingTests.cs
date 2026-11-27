@@ -4,9 +4,9 @@ namespace Ameen.Erp.Tests;
 public static class InventoryOpeningPostingTests
 {
     private static Actor Writer => InventoryOpeningTests.Writer;
-    internal static async Task<(CreateInventoryOpeningRequest Request, CommandReceipt Receipt)> Setup(Fixture f, ItemTracking tracking = ItemTracking.None)
+    internal static async Task<(CreateInventoryOpeningRequest Request, CommandReceipt Receipt)> Setup(Fixture f, ItemTracking tracking = ItemTracking.None, string identityNumber = "ID-1")
     {
-        var request = await InventoryOpeningTests.Setup(f, tracking);
+        var request = await InventoryOpeningTests.Setup(f, tracking, identityNumber);
         var member = f.Store.All<Membership>().Single(x => x.Subject == Writer.Subject);
         await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(Writer.Subject,
             member.GrantedPermissions.Append(Permissions.InventoryPost).ToArray(), true, Array.Empty<Guid>(), member.Version), default);
