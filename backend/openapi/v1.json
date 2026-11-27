@@ -11019,6 +11019,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -11144,6 +11154,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -11262,6 +11282,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -11354,6 +11384,16 @@
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -11472,6 +11512,16 @@
               "text/html": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
