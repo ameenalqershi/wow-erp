@@ -123,6 +123,22 @@ public static class CostCenterTests
             await Error("branch_access_denied", () => f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Limited, null, null, other.ResourceId, null, 0, 10, default));
             await Error("all_branches_required", () => f.Service.CostCenter.GetCostCenterUsage(f.CompanyId, global.ResourceId, f.Limited, 0, 10, default));
         });
+        test("COST01-OP01: search filters and deterministic pages", async f =>
+        {
+            var root = await Create(f, "FIND-00", null);
+            var child = await Create(f, "FIND-01", f.BranchId, root.ResourceId);
+            var inactive = await Create(f, "FIND-02", f.BranchId, root.ResourceId);
+            await Status(f, inactive, false);
+            var first = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, " FIND ", null, null, true, 0, 1, default);
+            var next = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, "FIND", null, null, true, 1, 1, default);
+            Ensure(first.TotalCount == 2 && next.TotalCount == 2 && first.Items.Single().Id == root.ResourceId &&
+                next.Items.Single().Id == child.ResourceId);
+            var children = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, null, f.BranchId, root.ResourceId, false, 0, 10, default);
+            Ensure(children.TotalCount == 1 && children.Items.Single().Id == inactive.ResourceId);
+            await Error("invalid_pagination", () => f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, null, null, null, null, -1, 10, default));
+            await Error("search_too_long", () => f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Owner, new string('A', 101), null, null, null, 0, 10, default));
+            Ensure((await Get(f, child)).Version == child.Version);
+        });
         test("COST01: same-key edit replays, stale version fails and rollback keeps revision", async f =>
         {
             var r = await Create(f, "C", null); var c = await Get(f, r); var request = Edit(c) with { Notes = "جديد" }; var key = Fixture.Key();
