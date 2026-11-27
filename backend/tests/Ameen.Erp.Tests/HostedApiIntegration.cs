@@ -1727,12 +1727,12 @@ public static class HostedApiIntegration
                         x.ActorId == "rpt08-print-reader" && x.ResourceId == companyId) == 1, "RPT08 extraction audit missing");
                 Console.WriteLine("  HOST PASS RPT08 OP04 protected preview and exact filtered values over HTTPS/JWT/SQL");
                 var inventoryStrictBefore = await ReadOnlyCounts(connection, companyId);
-                foreach (var (route, subject) in new[] {
+                foreach (var (route, inventorySubject) in new[] {
                     (rpt08BalanceUrl, "rpt08-print-reader"), (rpt08PrintUrl, "rpt08-print-reader"),
                     (rpt09LedgerUrl, "rpt09-print-reader"), (rpt09PrintUrl, "rpt09-print-reader"),
                     (rpt09ExportUrl, "rpt09-export-reader") })
                 {
-                    Authenticate(Token(subject));
+                    Authenticate(Token(inventorySubject));
                     foreach (var filter in new[] { "displayCurrency=USD", "documentState=Draft", "detailLevel=Summary",
                         "asOf=2026-03-01", "includeTransitAndQuarantine=true", "companyId=" + companyId })
                     {
