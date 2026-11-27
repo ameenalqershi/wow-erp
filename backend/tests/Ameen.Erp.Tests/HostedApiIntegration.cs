@@ -2404,6 +2404,35 @@ public static class HostedApiIntegration
                         data.RootElement.GetProperty("totalCount").GetInt32() == 1,
                         "COST01 rejected HTTP cycle added audit");
                 Console.WriteLine("  HOST PASS COST01 cycle rollback and absence of DELETE over HTTPS/JWT/SQL");
+                // F06 requires an explicit Boolean; omitted or string values must not disable a card.
+                var rootStatusPath = centersPath + $"/{rootCenter.ResourceId}/status";
+                foreach (var statusPayload in new[]
+                {
+                    $"{{\"expectedVersion\":\"{rootCenter.Version}\",\"reason\":\"missing state\"}}",
+                    $"{{\"expectedVersion\":\"{rootCenter.Version}\",\"isActive\":\"false\",\"reason\":\"wrong state type\"}}"
+                })
+                {
+                    using var malformedStatus = new HttpRequestMessage(HttpMethod.Post, rootStatusPath);
+                    malformedStatus.Headers.Add("Idempotency-Key", Fixture.Key());
+                    malformedStatus.Content = new StringContent(statusPayload, Encoding.UTF8, "application/json");
+                    using var rejectedStatus = await client.SendAsync(malformedStatus);
+                    Ensure(rejectedStatus.StatusCode == HttpStatusCode.BadRequest, "COST01 F06 accepted missing or non-Boolean status");
+                }
+                using (var blockedStatus = new HttpRequestMessage(HttpMethod.Post, rootStatusPath))
+                {
+                    blockedStatus.Headers.Add("Idempotency-Key", Fixture.Key());
+                    blockedStatus.Content = new StringContent(JsonSerializer.Serialize(
+                        new SetCostCenterStatusRequest(rootCenter.Version, false, "تعطيل أب فعال"), JsonDefaults.Options), Encoding.UTF8, "application/json");
+                    using var rejectedStatus = await client.SendAsync(blockedStatus);
+                    using var data = JsonDocument.Parse(await rejectedStatus.Content.ReadAsStringAsync());
+                    Ensure(!rejectedStatus.IsSuccessStatusCode && data.RootElement.GetProperty("code").GetString() == "active_child_centers",
+                        "COST01 accepted disabling parent with active child");
+                }
+                using (var currentRoot = await client.GetAsync(centersPath + $"/{rootCenter.ResourceId}"))
+                using (var data = JsonDocument.Parse(await currentRoot.Content.ReadAsStringAsync()))
+                    Ensure(currentRoot.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("isActive").GetBoolean() &&
+                        data.RootElement.GetProperty("version").GetGuid() == rootCenter.Version,
+                        "COST01 rejected status changed parent");
                 var trialByCenter = $"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31" +
                     $"&accountLevel=1&showZero=false&costCenterId={childCenter.ResourceId}";
                 using (var active = await client.GetAsync(trialByCenter))
@@ -2426,7 +2455,11 @@ public static class HostedApiIntegration
                 var centerAuditPath = centersPath + $"/{childCenter.ResourceId}/audit-events";
                 using (var centerDetail = await client.GetAsync(centersPath + $"/{childCenter.ResourceId}"))
                 using (var data = JsonDocument.Parse(await centerDetail.Content.ReadAsStringAsync()))
-                    Ensure(centerDetail.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("revision").GetInt32() == 3,
+                    Ensure(centerDetail.StatusCode == HttpStatusCode.OK && data.RootElement.GetProperty("revision").GetInt32() == 3 &&
+                        !data.RootElement.GetProperty("isActive").GetBoolean() &&
+                        data.RootElement.GetProperty("englishName").GetString() == "HTTP edited center" &&
+                        data.RootElement.GetProperty("notes").GetString() == "ملاحظة" &&
+                        data.RootElement.GetProperty("parentId").GetGuid() == rootCenter.ResourceId,
                         "COST01 numeric revision did not persist");
                 using (var auditResponse = await client.GetAsync(centerAuditPath))
                 using (var data = JsonDocument.Parse(await auditResponse.Content.ReadAsStringAsync()))
@@ -2461,6 +2494,7 @@ public static class HostedApiIntegration
                     Ensure(deniedAudit.StatusCode == HttpStatusCode.Forbidden, "COST01 audit leaked outside company-wide scope");
                 }
                 Authenticate(Token("sql-owner"));
+                Console.WriteLine("  HOST PASS COST01-FG02/OP04 explicit Boolean, rejected parent status and preserved metadata");
                 Console.WriteLine("  HOST PASS COST01-FG04/OP06 audit timestamps, numeric revision, stable pages and scoped JWT denial");
                 // Separate card and draft so the prior report and audit assertions stay independent.
                 var usageCenter = await Command(client, centersPath, new CreateCostCenterRequest("HTTP-USAGE", "مركز استخدام", journalRequest.BranchId));
