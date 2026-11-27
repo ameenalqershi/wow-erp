@@ -15,6 +15,18 @@ internal static class ReportsEndpoints
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.InventoryBalances(companyId, Actor(h), Date(from), Date(to), branchId, warehouseId, groupId, itemId, showZero ?? true, offset ?? 0, limit ?? 50, ct, branchIds)))
             .Produces<InventoryBalanceResult>().RequireAuthorization().WithTags("RPT08 Inventory balances");
+        app.MapGet(p + "/reports/inventory-balances/print", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, Guid? groupId, Guid? itemId, bool? showZero, int? offset, int? limit,
+            ReportService s, HttpContext h, CancellationToken ct) =>
+        {
+            var document = await s.InventoryBalancePrint(companyId, Actor(h), Date(from), Date(to), branchId,
+                warehouseId, groupId, itemId, showZero ?? true, offset ?? 0, limit ?? 50, ct, branchIds);
+            h.Response.Headers["Cache-Control"] = "no-store, private";
+            h.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            h.Response.Headers["X-Frame-Options"] = "DENY";
+            h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+            return Results.Content(InventoryBalancePrintHtml.Render(document), "text/html; charset=utf-8");
+        }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithTags("RPT08 Inventory balances");
         app.MapGet(p + "/reports/items/{itemId:guid}/ledger", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>

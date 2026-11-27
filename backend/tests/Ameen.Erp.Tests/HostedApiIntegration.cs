@@ -1625,6 +1625,44 @@ public static class HostedApiIntegration
                 }
                 Console.WriteLine("  HOST PASS RPT09 OP04 protected printed page, full totals, historical units and tenant denial");
 
+                var rpt08BalanceUrl = $"/api/v1/companies/{companyId}/reports/inventory-balances?from=2026-01-01&to=2026-12-31&warehouseId={openingWarehouse.ResourceId}&itemId={openingItem.ResourceId}&branchId={warehouseBranch.ResourceId}";
+                var rpt08PrintUrl = rpt08BalanceUrl.Replace("/inventory-balances?", "/inventory-balances/print?");
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("rpt08-print-reader", new[] { Permissions.Read, Permissions.InventoryBalancePrint },
+                        false, new[] { warehouseBranch.ResourceId }, null));
+                var rpt08Before = await ReadOnlyCounts(connection, companyId);
+                Authenticate(Token("rpt08-print-reader"));
+                using (var printedBalance = await client.GetAsync(rpt08PrintUrl))
+                using (var balanceData = await client.GetAsync(rpt08BalanceUrl))
+                {
+                    printedBalance.EnsureSuccessStatusCode(); balanceData.EnsureSuccessStatusCode();
+                    var html = await printedBalance.Content.ReadAsStringAsync();
+                    var data = JsonSerializer.Deserialize<InventoryBalanceResult>(await balanceData.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var row = data.Rows.Items.Single();
+                    string Cells(params decimal[] values) => string.Concat(values.Select(x =>
+                        "<td class=\"num\">" + x.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture) + "</td>"));
+                    Ensure(printedBalance.Content.Headers.ContentType?.MediaType == "text/html" &&
+                        printedBalance.Headers.TryGetValues("Cache-Control", out var rpt08Cache) && rpt08Cache.Any(x => x.Contains("no-store")) &&
+                        html.Contains("لا تعرض المكونات غير المدعومة كأصفار") && html.Contains(row.ItemId.ToString()) &&
+                        html.Contains(row.InventoryAccountId.ToString()) &&
+                        html.Contains(Cells(data.OpeningValue, data.InValue, data.OutValue, data.ClosingValue)) &&
+                        html.Contains(Cells(row.OpeningQuantity, row.OpeningValue, row.InQuantity, row.InValue, row.OutQuantity, row.OutValue, row.ClosingQuantity, row.ClosingValue)),
+                        "RPT08 print differs from scoped report");
+                }
+                foreach (var deniedActor in new[] { "rpt09-read-only", "rpt09-print-reader", "audit-no-membership" })
+                {
+                    Authenticate(Token(deniedActor));
+                    using var rpt08Denied = await client.GetAsync(rpt08PrintUrl);
+                    Ensure(rpt08Denied.StatusCode == HttpStatusCode.Forbidden, "RPT08 independent print permission bypass");
+                }
+                Authenticate(Token("sql-owner"));
+                var rpt08After = await ReadOnlyCounts(connection, companyId);
+                Ensure(rpt08After == (rpt08Before.Journals, rpt08Before.Audits + 1, rpt08Before.Receipts, rpt08Before.Outbox),
+                    "RPT08 print audit or financial effect mismatch");
+                await using (var rpt08Db = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await rpt08Db.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId && x.Action == "report.rpt08.print" &&
+                        x.ActorId == "rpt08-print-reader" && x.ResourceId == companyId) == 1, "RPT08 extraction audit missing");
+                Console.WriteLine("  HOST PASS RPT08 OP04 protected preview and exact filtered values over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
 

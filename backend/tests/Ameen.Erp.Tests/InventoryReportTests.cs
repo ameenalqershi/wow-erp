@@ -283,6 +283,39 @@ public static class InventoryReportTests
             Ensure(before == (f.Store.Count<AuditEvent>() - 1, f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
         });
+        test("RPT08 OP04: scoped print, full values, permission and audit", async f =>
+        {
+            var (request, posted) = await Post(f);
+            await Reverse(f, posted, Fixture.Date.AddDays(1));
+            var actor = new Actor("rpt08-printer");
+            var reader = new Actor("rpt08-reader");
+            var printOnly = new Actor("rpt08-print-only");
+            foreach (var (user, permissions) in new[] {
+                (actor, new[] { Permissions.Read, Permissions.InventoryBalancePrint }),
+                (reader, new[] { Permissions.Read, Permissions.InventoryLedgerPrint }),
+                (printOnly, new[] { Permissions.InventoryBalancePrint }) })
+                await f.Service.Membership.GrantMembership(f.CompanyId, f.Owner, Fixture.Key(), new(user.Subject,
+                    permissions, false, new[] { f.BranchId }, null), default);
+            var before = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            Task<InventoryBalancePrintDocument> Print(Actor user, int offset = 0, Guid? branch = null, bool zero = true) =>
+                f.Service.Report.InventoryBalancePrint(f.CompanyId, user, Fixture.Date, Fixture.Date.AddDays(1),
+                    branch, request.WarehouseId, null, request.Lines[0].ItemId, zero, offset, 1, default);
+            var page = await Print(actor, 1, f.BranchId);
+            Ensure(page.Report.Rows.Items.Count == 0 && page.Report.Rows.TotalCount == 1 &&
+                page.Report.InValue == 10.5m && page.Report.OutValue == 10.5m && page.Report.ClosingValue == 0 &&
+                page.Report.InventoryOpeningsOnly && page.BranchNames.Length == 1);
+            await Error("permission_denied", () => Print(reader));
+            await Error("permission_denied", () => Print(printOnly));
+            await Error("branch_access_denied", () => Print(actor, branch: f.OtherBranchId));
+            var audit = f.Store.All<AuditEvent>().Single(x => x.Action == "report.rpt08.print");
+            Ensure(audit.ActorId == actor.Subject && audit.ResourceId == f.CompanyId);
+            using var detail = System.Text.Json.JsonDocument.Parse(audit.Details);
+            Ensure(detail.RootElement.GetProperty("offset").GetInt32() == 1 &&
+                detail.RootElement.GetProperty("totalCount").GetInt32() == 1);
+            Ensure(before == (f.Store.Count<AuditEvent>() - 1, f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));
