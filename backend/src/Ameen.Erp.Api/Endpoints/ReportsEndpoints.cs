@@ -20,6 +20,17 @@ internal static class ReportsEndpoints
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.InventoryLedger(companyId, itemId, Actor(h), Date(from), Date(to), branchId, warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct, branchIds)))
             .Produces<InventoryLedgerResult>().RequireAuthorization().WithTags("RPT09 Item movement ledger");
+        app.MapGet(p + "/reports/items/{itemId:guid}/ledger/export", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber,
+            ReportService s, HttpContext h, CancellationToken ct) =>
+        {
+            var bytes = await s.InventoryLedgerExport(companyId, itemId, Actor(h), Date(from), Date(to),
+                branchId, warehouseId, identityNumber, ct, branchIds);
+            h.Response.Headers["Cache-Control"] = "no-store, private";
+            h.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "item-ledger.xlsx");
+        }).Produces(StatusCodes.Status200OK, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+          .RequireAuthorization().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/items/{itemId:guid}/ledger/print", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
             ReportService s, HttpContext h, CancellationToken ct) =>

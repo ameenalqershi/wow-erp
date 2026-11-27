@@ -50,8 +50,13 @@ public sealed partial class ReportService
     }
     public async Task<InventoryLedgerResult> InventoryLedger(Guid cid, Guid itemId, Actor actor, DateOnly from, DateOnly to,
         Guid? branchId, Guid? warehouseId, string? identityNumber, int offset, int limit, CancellationToken ct, Guid[]? branchIds = null)
+        => await BuildInventoryLedger(cid, itemId, actor, from, to, branchId, warehouseId, identityNumber, offset, limit, false, ct, branchIds);
+
+    private async Task<InventoryLedgerResult> BuildInventoryLedger(Guid cid, Guid itemId, Actor actor, DateOnly from, DateOnly to,
+        Guid? branchId, Guid? warehouseId, string? identityNumber, int offset, int limit, bool export, CancellationToken ct, Guid[]? branchIds)
     {
-        Paging(offset, limit); Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
+        if (!export) Paging(offset, limit);
+        Check.That(to >= from, "invalid_date_range", "نهاية التقرير قبل بدايته.");
         var branches = await InventoryBranches(cid, actor, branchId, warehouseId, branchIds, ct);
         var item = await Required<Item>(cid, itemId, ct); var company = await Company(cid, ct);
         identityNumber = string.IsNullOrWhiteSpace(identityNumber) ? null : Check.Code(identityNumber, "الدفعة أو التسلسل");
@@ -65,6 +70,8 @@ public sealed partial class ReportService
         // Posting timestamp makes same-day effects explicit, including backdated documents; ID is a deterministic tie-breaker.
         var period = movements.Where(x => x.AccountingDate >= from).OrderBy(x => x.AccountingDate).ThenBy(x => x.OccurredAt)
             .ThenBy(x => x.ReversesMovementId.HasValue).ThenBy(x => x.Id).ToArray();
+        if (export)
+            Check.That(period.Length <= limit, "report_export_too_large", "تجاوز التقرير حد التصدير؛ ضيق المرشحات.");
         var page = period.Skip(offset).Take(limit).ToArray(); var sourceIds = page.Select(x => x.OpeningId).Distinct().ToArray();
         var sources = (await store.Find<InventoryOpening>(cid, x => sourceIds.Contains(x.Id), ct)).ToDictionary(x => x.Id);
         var quantity = openingQuantity + period.Take(offset).Sum(x => x.BaseQuantity);
