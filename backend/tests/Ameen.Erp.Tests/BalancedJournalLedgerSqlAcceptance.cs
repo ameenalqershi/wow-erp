@@ -82,6 +82,8 @@ public static class BalancedJournalLedgerSqlAcceptance
         var debit = await Ledger(debitAccount);
         var credit = await Ledger(creditAccount);
         var after = await Trial();
+        TrialBalanceAcceptanceTests.AssertEquation(before);
+        TrialBalanceAcceptanceTests.AssertEquation(after);
         Ensure(debit.CompanyId == cid && debit.BranchIds.SequenceEqual(new[] { sample.BranchId }) &&
             debit.Entries.TotalCount == 1 && debit.Entries.Items.Count == 1 &&
             debit.Entries.Items[0].JournalId == posted.ResourceId &&
@@ -126,6 +128,22 @@ public static class BalancedJournalLedgerSqlAcceptance
         await Expect("permission_denied", () => Call(s =>
             s.Report.AccountLedger(cid, debitAccount, new Actor("gl03-t01-outsider"),
                 date, date, sample.BranchId, 0, 10, default, null, reference)));
+        // Prove the same live report is unchanged by an unbalanced draft
+        // rejected at submission. Use a fresh reference to avoid collisions.
+        var invalidLines = request.Lines.ToArray();
+        invalidLines[1] = invalidLines[1] with { Credit = amount + 1 };
+        var invalid = await Call(s => s.Journal.CreateJournal(cid, clerk, Fixture.Key(),
+            request with { ExternalReference = reference + "-BAD", Lines = invalidLines }, default));
+        await Expect("journal_unbalanced", () => Call(s => s.Journal.TransitionJournal(cid,
+            invalid.ResourceId, clerk, Fixture.Key(), new(invalid.Version), "submit", default)));
+        var unchanged = await Trial();
+        TrialBalanceAcceptanceTests.AssertEquation(unchanged);
+        Ensure(unchanged.Rows.SequenceEqual(after.Rows), "RPT01 rejected draft changed live trial balance");
+        await Expect("permission_denied", () => Call(s => s.Report.TrialBalance(cid,
+            new Actor("rpt01-outsider"), date, date, sample.BranchId, default)));
+        await Call(s => s.Journal.TransitionJournal(cid, invalid.ResourceId, clerk, Fixture.Key(),
+            new(invalid.Version, "إلغاء مسودة الاختبار"), "cancel", default));
+        Console.WriteLine("  SQL PASS RPT01-AC01/AC02/CTRL01 balanced rows and totals, rejected draft unchanged, tenant denied");
         Console.WriteLine("  SQL PASS GL03-T01 posted balanced journal exactly once in both account ledgers, trial balance, audit and outbox; denied cross-membership read");
     }
 

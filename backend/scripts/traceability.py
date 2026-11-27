@@ -540,6 +540,8 @@ screen("RPT09", "GET /companies/{companyId}/reports/items/{itemId}/ledger",
 for report in ["RPT01", "RPT02"]:
     names = ["Program.cs", "ReportBranchSelectionTests.cs", "HttpIntegration.cs", "OpenApiSnapshotTests.cs", "HostedApiIntegration.cs"]
     names.append("AccountLedgerAcceptanceTests.cs")
+    if report == "RPT01":
+        names.extend(["TrialBalanceAcceptanceTests.cs", "BalancedJournalLedgerSqlAcceptance.cs"])
     MAP[report]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in names)
 for report in ["RPT08", "RPT09"]:
     MAP[report]["test_file"] = "; ".join("backend/tests/Ameen.Erp.Tests/" + name for name in ["InventoryReportTests.cs", "InventoryOpeningSqlIntegration.cs", "HostedApiIntegration.cs"])

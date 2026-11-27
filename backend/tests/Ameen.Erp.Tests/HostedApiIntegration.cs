@@ -447,6 +447,27 @@ public static class HostedApiIntegration
                     Ensure(data.RootElement.GetProperty("branchIds").EnumerateArray().Single().GetGuid() == id,
                         "SQL report did not apply the selected branch");
                 }
+                // RPT01: verify the public decimal-string contract and
+                // equations on real SQL data without relying on fixture totals.
+                var trialPath = $"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&branchId={journalRequest.BranchId}";
+                Authenticate(Token(sourceReader));
+                using (var trialResponse = await client.GetAsync(trialPath))
+                {
+                    trialResponse.EnsureSuccessStatusCode();
+                    var trial = JsonSerializer.Deserialize<TrialBalanceResult>(
+                        await trialResponse.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    TrialBalanceAcceptanceTests.AssertEquation(trial);
+                    Ensure(trial.CompanyId == companyId && trial.BranchIds.SequenceEqual(new[] { journalRequest.BranchId }) &&
+                        trial.Rows.Any(x => x.AccountId == journalRequest.Lines[0].AccountId && x.Code.Length > 0 && x.Name.Length > 0),
+                        "RPT01 scoped HTTP report omitted account identity or scope");
+                }
+                using (var invalidRange = await client.GetAsync(trialPath.Replace("to=2026-12-31", "to=2025-12-31")))
+                    Ensure(invalidRange.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT01 accepted reversed date range");
+                Authenticate(Token("rpt01-nonmember"));
+                using (var deniedTrial = await client.GetAsync(trialPath))
+                    Ensure(deniedTrial.StatusCode == HttpStatusCode.Forbidden, "RPT01 leaked trial balance to nonmember");
+                Authenticate(Token("sql-approver"));
+                Console.WriteLine("  HOST PASS RPT01-AC01/AC02/CTRL01 functional trial balance equations, scoped JWT, invalid period and nonmember denial");
                 using var hierarchy = await client.GetAsync($"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31&accountLevel=1&showZero=false");
                 Ensure(hierarchy.StatusCode == HttpStatusCode.OK, "Production report filters failed");
                 using (var report = JsonDocument.Parse(await hierarchy.Content.ReadAsStringAsync()))
