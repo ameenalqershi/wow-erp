@@ -1156,9 +1156,9 @@ public static class HostedApiIntegration
                     var row = json.RootElement.GetProperty("rows").GetProperty("items")[0];
                     Ensure(row.GetProperty("runningQuantity").GetString() == "0" && row.GetProperty("openingId").GetGuid() == reversalOpening.ResourceId && row.GetProperty("documentUnits").GetArrayLength() == 1, "HTTP stock drilldown or running balance differs");
                 }
-                foreach (var path in new[] { "inventory-balances", $"items/{openingItem.ResourceId}/ledger" })
+                foreach (var inventoryReportPath in new[] { "inventory-balances", $"items/{openingItem.ResourceId}/ledger" })
                 {
-                    var url = $"/api/v1/companies/{companyId}/reports/{path}?from=2026-01-01&to=2026-12-31";
+                    var url = $"/api/v1/companies/{companyId}/reports/{inventoryReportPath}?from=2026-01-01&to=2026-12-31";
                     using var mismatch = await client.GetAsync(url + $"&branchIds={journalRequest.BranchId}&warehouseId={openingWarehouse.ResourceId}");
                     Ensure(mismatch.StatusCode == HttpStatusCode.BadRequest, "HTTP inventory report accepted warehouse outside selected branches");
                     using var ambiguous = await client.GetAsync(url + $"&branchId={warehouseBranch.ResourceId}&branchIds={journalRequest.BranchId}");
