@@ -1,3 +1,7 @@
+## DIAG-module-IMP — مطابقة خريطة الاستيراد والاعتمادات (27 نوفمبر 2026)
+
+القضية #554: اكتمل نطاق التدقيق المستقل لعشر عقد وتسع حواف وست شاشات و127 حقلًا؛ تطابقت معرّفات الحقول وأسماؤها مع القاموس. جميع الحقول pending والشاشات not-started؛ لم يثبت أي أثر تشغيلي لـIMP. نجح حارس خرائط التنقل (15 خريطة و150 شاشة) وفحص SVG وCSV. [دليل المطابقة والفجوات](imp-diagram-audit.md). لا تغيير للتحليل أو API أو SQL؛ لا إغلاق لمهام الشاشات، ولا اختبار وظيفي لـIMP.
+
 ## GL11-T02 / GL12 — cross-tenant period read acceptance (4 November 2026)
 
 **Independent regression only; no new accounting rule:** `RateAndCloseTests.cs` verifies that an actor explicitly authorized for Read, Audit, PeriodClose and PeriodReopen in a *different* company cannot query the source company's existing period via GL11 close preview, GL11 execution history, or GL12 reopen-only history. All three must return `reference_not_found`; source period version/status and audit, idempotency, journal, and outbox counts remain unchanged. The original period has real close/reopen audit decisions in the test, rather than an empty-history false positive.
