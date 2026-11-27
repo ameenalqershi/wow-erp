@@ -49,6 +49,20 @@ public static class OpenApiConfiguration
             {
                 Type = SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT"
             };
+            if (document.Paths.TryGetValue("/api/v1/companies/{companyId}/reports/items/{itemId}/ledger/export", out var exportPath))
+                foreach (var exportOperation in exportPath.Operations?.Values ?? Enumerable.Empty<OpenApiOperation>())
+                    if (exportOperation.Responses?.TryGetValue("200", out var response) == true)
+                        exportOperation.Responses["200"] = new OpenApiResponse
+                        {
+                            Description = response.Description ?? "OK",
+                            Content = new Dictionary<string, OpenApiMediaType>
+                            {
+                                ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"] = new()
+                                {
+                                    Schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" }
+                                }
+                            }
+                        };
             foreach (var path in document.Paths.Where(p => p.Key != "/health/live"))
             foreach (var operation in path.Value.Operations?.Values ?? Enumerable.Empty<OpenApiOperation>())
             {

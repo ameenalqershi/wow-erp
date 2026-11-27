@@ -1654,6 +1654,39 @@ public static class HostedApiIntegration
                         "RPT09 extraction audit metadata differs");
                 }
                 Console.WriteLine("  HOST PASS RPT09 OP04 protected printed page, full totals, historical units and tenant denial");
+                var rpt09ExportUrl = rpt09LedgerUrl.Replace("/ledger?", "/ledger/export?");
+                await Command(client, $"/api/v1/companies/{companyId}/memberships",
+                    new GrantMembershipRequest("rpt09-export-reader", new[] { Permissions.Read, Permissions.InventoryLedgerExport },
+                        false, new[] { warehouseBranch.ResourceId }, null));
+                var rpt09ExportBefore = await ReadOnlyCounts(connection, companyId);
+                Authenticate(Token("rpt09-export-reader"));
+                using (var file = await client.GetAsync(rpt09ExportUrl))
+                using (var data = await client.GetAsync(rpt09LedgerUrl))
+                {
+                    file.EnsureSuccessStatusCode(); data.EnsureSuccessStatusCode();
+                    Ensure(file.Content.Headers.ContentType?.MediaType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
+                        file.Content.Headers.ContentDisposition?.FileName?.Contains("item-ledger.xlsx") == true &&
+                        file.Headers.TryGetValues("Cache-Control", out var cache) && cache.Any(x => x.Contains("no-store")),
+                        "RPT09 export content metadata mismatch");
+                    InventoryLedgerExportTests.AssertWorkbook(await file.Content.ReadAsByteArrayAsync(),
+                        JsonSerializer.Deserialize<InventoryLedgerResult>(await data.Content.ReadAsStringAsync(), JsonDefaults.Options)!);
+                }
+                foreach (var deniedActor in new[] { "rpt09-read-only", "rpt09-print-reader", "audit-no-membership" })
+                {
+                    Authenticate(Token(deniedActor));
+                    using var rpt09ExportDenied = await client.GetAsync(rpt09ExportUrl);
+                    Ensure(rpt09ExportDenied.StatusCode == HttpStatusCode.Forbidden, "RPT09 independent export permission bypassed");
+                }
+                Authenticate(Token("sql-owner"));
+                var rpt09ExportAfter = await ReadOnlyCounts(connection, companyId);
+                Ensure(rpt09ExportAfter == (rpt09ExportBefore.Journals, rpt09ExportBefore.Audits + 1, rpt09ExportBefore.Receipts, rpt09ExportBefore.Outbox),
+                    "RPT09 export audit or accounting side effects mismatch");
+                await using (var exportDb = new ErpDbContext(new DbContextOptionsBuilder<ErpDbContext>().UseSqlServer(connection).Options))
+                    Ensure(await exportDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == companyId &&
+                        x.Action == "report.rpt09.export" && x.ActorId == "rpt09-export-reader" && x.ResourceId == openingItem.ResourceId) == 1,
+                        "RPT09 export SQL audit missing");
+                Console.WriteLine("  HOST PASS RPT09 OP05 independent export, exact XLSX and audit over HTTPS/JWT/SQL");
+
 
                 Console.WriteLine("  HOST PASS RPT08/09 balances and paged item ledger over HTTPS/JWT/SQL");
                 Console.WriteLine("  HOST PASS INV06 create/submit/approve/post reversal and net-zero stock over HTTPS/JWT/SQL");
