@@ -2595,6 +2595,24 @@ public static class HostedApiIntegration
                     Ensure(deniedAudit.StatusCode == HttpStatusCode.Forbidden, "COST01 audit leaked outside company-wide scope");
                 }
                 Authenticate(Token("sql-owner"));
+                var centerSearchUrl = centersPath + "/search";
+                foreach (var centerSearchTerm in new[] { "HTTP-CHILD", "edited", Uri.EscapeDataString("مركز معدل") })
+                {
+                    using var response = await client.GetAsync(centerSearchUrl + $"?search={centerSearchTerm}&parentId={rootCenter.ResourceId}&isActive=false&limit=1");
+                    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                    Ensure(response.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 1 &&
+                        json.RootElement.GetProperty("items")[0].GetProperty("id").GetGuid() == childCenter.ResourceId,
+                        "COST01 search code/Arabic/English filters differ");
+                }
+                using (var response = await client.GetAsync(centerSearchUrl + "?search=HTTP-CHILD&offset=1&limit=1"))
+                using (var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                    Ensure(response.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 1 &&
+                        json.RootElement.GetProperty("items").GetArrayLength() == 0, "COST01 search page boundary differs");
+                using (var response = await client.GetAsync(centerAuditPath))
+                using (var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+                    Ensure(response.StatusCode == HttpStatusCode.OK && json.RootElement.GetProperty("totalCount").GetInt32() == 3,
+                        "COST01 search added audit");
+                Console.WriteLine("  HOST PASS COST01-OP01 code and Unicode search, paging and read-only history");
                 Console.WriteLine("  HOST PASS COST01-FG02/OP04 explicit Boolean, rejected parent status and preserved metadata");
                 Console.WriteLine("  HOST PASS COST01-FG04/OP06 audit timestamps, numeric revision, stable pages and scoped JWT denial");
                 // Separate card and draft so the prior report and audit assertions stay independent.

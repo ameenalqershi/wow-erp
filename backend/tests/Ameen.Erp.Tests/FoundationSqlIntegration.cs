@@ -281,6 +281,25 @@ public static class FoundationSqlIntegration
                 "COST01 rejected status persisted audit or receipt");
         }
         Console.WriteLine("  SQL PASS COST01-FG02/OP04 metadata roundtrip, concurrent status rejection and exact replay");
+        var searchRoot = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FIND-00", "بحث تجريبي", null), default));
+        var searchLocal = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FIND-01", "بحث تجريبي", journalRequest.BranchId, searchRoot.ResourceId, EnglishName: "Find English"), default));
+        var searchInactive = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(),
+            new("FIND-02", "بحث تجريبي", journalRequest.BranchId, searchRoot.ResourceId), default));
+        await Call(s => s.CostCenter.SetCostCenterStatus(cid, searchInactive.ResourceId, owner, Fixture.Key(),
+            new(searchInactive.Version, false, "تعطيل"), default));
+        var searchFirst = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "بحث تجريبي", journalRequest.BranchId, null, true, 0, 1, default));
+        var searchSecond = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "FIND-", journalRequest.BranchId, null, true, 1, 1, default));
+        var searchDisabled = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, null, journalRequest.BranchId, searchRoot.ResourceId, false, 0, 10, default));
+        Ensure(searchFirst.TotalCount == 2 && searchSecond.TotalCount == 2 &&
+            searchFirst.Items.Single().Id == searchRoot.ResourceId && searchSecond.Items.Single().Id == searchLocal.ResourceId &&
+            searchDisabled.TotalCount == 1 && searchDisabled.Items.Single().Id == searchInactive.ResourceId,
+            "COST01 search SQL filter or paging differs");
+        Ensure((await Call(s => s.CostCenter.GetCostCenter(cid, searchLocal.ResourceId, owner, default))).Version == searchLocal.Version &&
+            (await Call(s => s.CostCenter.ListCostCenterAudit(cid, searchLocal.ResourceId, owner, 0, 10, default))).TotalCount == 1,
+            "COST01 search changed version or audit");
+        Console.WriteLine("  SQL PASS COST01-OP01 Unicode search and filtered paging");
         Console.WriteLine("  SQL PASS COST01 tenant FKs and SYS04/COST01 status writes under runtime role");
     }
     private static void Ensure(bool condition, string message) { if (!condition) throw new Exception(message); }
