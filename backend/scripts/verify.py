@@ -47,6 +47,7 @@ def main():
         [sys.executable, "-m", "unittest", "discover", "-s", str(BACKEND / "scripts/tests"), "-p", "test_*.py"],
         [sys.executable, str(BACKEND / "scripts/check_migration_versions.py")],
         [sys.executable, str(BACKEND / "scripts/traceability.py"), "--check"],
+        [sys.executable, str(BACKEND / "scripts/check_rpt_dependency_gates.py")],
         [sys.executable, str(BACKEND / "scripts/audit_cash_diagram.py")],
         [args.dotnet, "restore", "Ameen.Erp.sln", "--locked-mode", "--disable-parallel", "-m:1"],
         [args.dotnet, "build", "Ameen.Erp.sln", "-c", "Release", "--no-restore", "-p:UseSharedCompilation=false", "-m:1"],
