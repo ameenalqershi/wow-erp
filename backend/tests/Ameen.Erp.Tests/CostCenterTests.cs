@@ -15,6 +15,21 @@ public static class CostCenterTests
             var page = await f.Service.CostCenter.SearchCostCenters(f.CompanyId, f.Limited, "Sales", null, parent.ResourceId, true, 0, 10, default);
             Ensure(page.Items.Single().Id == c.Id);
         });
+        test("COST01-FG01: server identity, leading zero code and Arabic name", async f =>
+        {
+            var request = new CreateCostCenterRequest("00042", "مركز المبيعات", null);
+            var key = Fixture.Key();
+            var receipt = await f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, key, request, default);
+            var card = await Get(f, receipt);
+            Ensure(card.Id != Guid.Empty && card.Id == receipt.ResourceId && card.CompanyId == f.CompanyId &&
+                card.Code == "00042" && card.Name == "مركز المبيعات");
+            Ensure(await f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, key, request, default) == receipt);
+            var audits = f.Store.Count<AuditEvent>();
+            await Error("duplicate_code", () => f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(), request, default));
+            await Error("invalid_text", () => f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(), request with { Code = "00043", Name = " " }, default));
+            await Error("invalid_code", () => f.Service.CostCenter.CreateCostCenter(f.CompanyId, f.Owner, Fixture.Key(), request with { Code = "00 043" }, default));
+            Ensure(f.Store.Count<AuditEvent>() == audits && (await Get(f, receipt)).Version == receipt.Version);
+        });
         test("COST01: direct and indirect cycles are rejected atomically", async f =>
         {
             var root = await Create(f, "ROOT", null); var child = await Create(f, "CHILD", null, root.ResourceId); var r = await Get(f, root);

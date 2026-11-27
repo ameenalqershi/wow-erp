@@ -318,6 +318,30 @@ public static class FoundationSqlIntegration
         await Error("permission_denied", () => Call(s => s.CostCenter.SearchCostCenters(otherId, scopedSearchActor, null, null, null, null, 0, 10, default)));
         Console.WriteLine("  SQL PASS COST01-OP01 company and branch search authorization");
         Console.WriteLine("  SQL PASS COST01-OP01 Unicode search and filtered paging");
+        var identityRequest = new CreateCostCenterRequest("00042", "مركز المبيعات", null);
+        var identityKeys = new[] { Fixture.Key(), Fixture.Key() };
+        async Task<(string Code, CommandReceipt? Receipt)> TryIdentity(string identityKey)
+        {
+            try { return ("accepted", await Call(s => s.CostCenter.CreateCostCenter(cid, owner, identityKey, identityRequest, default))); }
+            catch (BusinessException ex) { return (ex.Code, null); }
+        }
+        var identityOutcomes = await Task.WhenAll(identityKeys.Select(TryIdentity));
+        Ensure(identityOutcomes.Count(x => x.Code == "accepted") == 1 &&
+            identityOutcomes.Count(x => x.Code == "duplicate_code") == 1, "COST01 identity uniqueness differs");
+        var identityWinner = Array.FindIndex(identityOutcomes, x => x.Code == "accepted");
+        var identityReceipt = identityOutcomes[identityWinner].Receipt!;
+        var secondTenantIdentity = await Call(s => s.CostCenter.CreateCostCenter(otherId, owner, Fixture.Key(), identityRequest, default));
+        Ensure(secondTenantIdentity.ResourceId != identityReceipt.ResourceId, "COST01 generated identity repeated");
+        await using (var identityDb = Context())
+        {
+            var identityCard = await identityDb.Set<CostCenter>().SingleAsync(x => x.CompanyId == cid && x.Code == "00042");
+            Ensure(identityCard.Id == identityReceipt.ResourceId && identityCard.Name == identityRequest.Name &&
+                identityCard.Code == "00042", "COST01 identity SQL roundtrip differs");
+            Ensure(await identityDb.Set<AuditEvent>().CountAsync(x => x.CompanyId == cid && x.ResourceId == identityCard.Id) == 1 &&
+                !await identityDb.Set<IdempotencyRecord>().AnyAsync(x => x.CompanyId == cid && x.Key == identityKeys[1 - identityWinner]),
+                "COST01 duplicate identity added audit or receipt");
+        }
+        Console.WriteLine("  SQL PASS COST01-FG01 generated identity, Unicode, tenant uniqueness and concurrent create");
         Console.WriteLine("  SQL PASS COST01 tenant FKs and SYS04/COST01 status writes under runtime role");
     }
     private static void Ensure(bool condition, string message) { if (!condition) throw new Exception(message); }

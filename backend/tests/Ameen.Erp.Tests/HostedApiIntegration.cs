@@ -2599,6 +2599,37 @@ public static class HostedApiIntegration
 
 
                 var centersPath = $"/api/v1/companies/{companyId}/cost-centers";
+                var centerIdentityRequest = new CreateCostCenterRequest("00043", "مركز المبيعات", null);
+                var centerIdentityKey = Fixture.Key();
+                var centerIdentityReceipt = await Command(client, centersPath, centerIdentityRequest, centerIdentityKey);
+                Ensure(await Command(client, centersPath, centerIdentityRequest, centerIdentityKey) == centerIdentityReceipt,
+                    "COST01 identity HTTP replay differs");
+                using (var identityDetail = await client.GetAsync(centersPath + $"/{centerIdentityReceipt.ResourceId}"))
+                using (var identityData = JsonDocument.Parse(await identityDetail.Content.ReadAsStringAsync()))
+                {
+                    var identityCard = identityData.RootElement;
+                    Ensure(identityDetail.StatusCode == HttpStatusCode.OK &&
+                        identityCard.GetProperty("id").GetGuid() == centerIdentityReceipt.ResourceId &&
+                        identityCard.GetProperty("companyId").GetGuid() == companyId &&
+                        identityCard.GetProperty("code").GetString() == "00043" &&
+                        identityCard.GetProperty("name").GetString() == "مركز المبيعات",
+                        "COST01 identity HTTP roundtrip differs");
+                }
+                using (var duplicateCenter = new HttpRequestMessage(HttpMethod.Post, centersPath))
+                {
+                    duplicateCenter.Headers.Add("Idempotency-Key", Fixture.Key());
+                    duplicateCenter.Content = new StringContent(JsonSerializer.Serialize(centerIdentityRequest, JsonDefaults.Options), Encoding.UTF8, "application/json");
+                    using var duplicateResult = await client.SendAsync(duplicateCenter);
+                    using var duplicateData = JsonDocument.Parse(await duplicateResult.Content.ReadAsStringAsync());
+                    Ensure(duplicateResult.StatusCode == HttpStatusCode.Conflict &&
+                        duplicateData.RootElement.GetProperty("code").GetString() == "duplicate_code",
+                        "COST01 duplicate code HTTP contract differs");
+                }
+                using (var identityHistory = await client.GetAsync(centersPath + $"/{centerIdentityReceipt.ResourceId}/audit-events"))
+                using (var identityAudit = JsonDocument.Parse(await identityHistory.Content.ReadAsStringAsync()))
+                    Ensure(identityHistory.StatusCode == HttpStatusCode.OK && identityAudit.RootElement.GetProperty("totalCount").GetInt32() == 1,
+                        "COST01 identity replay or rejection added audit");
+                Console.WriteLine("  HOST PASS COST01-FG01 server identity, leading zeros, Unicode and duplicate rejection");
                 var rootCenter = await Command(client, centersPath, new CreateCostCenterRequest("HTTP-ROOT", "مركز عام", null));
                 var childCenter = await Command(client, centersPath, new CreateCostCenterRequest("HTTP-CHILD", "مركز فرعي", journalRequest.BranchId, rootCenter.ResourceId, EnglishName: "HTTP center"));
                 childCenter = await Command(client, centersPath + $"/{childCenter.ResourceId}",
