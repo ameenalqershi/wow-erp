@@ -534,8 +534,8 @@ screen("RPT08", "GET /companies/{companyId}/reports/inventory-balances",
        "افتتاح وعكسه فقط؛ لا حجز/متاح/طريق/عزل ولا محرك تكلفة أو مطابقة رقابة آلية عامة؛ لا عملة عرض أو طباعة أو تصدير؛ حتى تاريخ يستخدم to نفسه؛ التجميع ثابت",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 10: "query.warehouseId", 11: "query.groupId (current item group)", 12: "query.itemId"})
 screen("RPT09", "GET /companies/{companyId}/reports/items/{itemId}/ledger",
-       "حركة افتتاح وعكس بوحدة أساسية ورصيد جارٍ عبر الصفحات؛ وحدات وتكلفة سطور المصدر التاريخية وروابط المستند والقيد؛ ترتيب تاريخ الأثر ووقت الترحيل؛ رفض عدم تطابق مصدر صف الحركة المعروض",
-       "المصادر الحالية افتتاح وعكسه فقط؛ لا صرف/استلام/تحويل؛ لا عملة عرض أو طباعة أو تصدير؛ التفصيل ثابت؛ تجميع القراءة في الذاكرة يحتاج تحسينًا للأحجام الكبيرة",
+       "حركة افتتاح وعكس بوحدة أساسية ورصيد جارٍ عبر الصفحات؛ وحدات وتكلفة سطور المصدر التاريخية وروابط المستند والقيد؛ ترتيب تاريخ الأثر ووقت الترحيل؛ رفض عدم تطابق مصدر صف الحركة المعروض؛ معاينة HTML للصفحة مع إجماليات النطاق",
+       "المصادر الحالية افتتاح وعكسه فقط؛ لا صرف/استلام/تحويل؛ لا اختيار عملة عرض أو تصدير؛ التفصيل ثابت؛ تجميع القراءة في الذاكرة يحتاج تحسينًا للأحجام الكبيرة",
        {1: "CompanyId", 2: "query.branchId or repeated query.branchIds: active authorized selection; omitted = historical authorized scope", 3: "query.from", 4: "query.to", 9: "route.itemId: company-scoped historical card", 10: "query.warehouseId: authorized branch and company", 11: "query.identityNumber (exact normalized lot or serial number; leading zeros retained)"})
 for report in ["RPT01", "RPT02"]:
     names = ["Program.cs", "ReportBranchSelectionTests.cs", "HttpIntegration.cs", "OpenApiSnapshotTests.cs", "HostedApiIntegration.cs"]

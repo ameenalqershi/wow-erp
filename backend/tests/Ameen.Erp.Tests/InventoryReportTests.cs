@@ -243,6 +243,28 @@ public static class InventoryReportTests
             Ensure(initial == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
                 f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
         });
+        test("RPT09 OP04: print preserves selected page, full totals and scope without effects", async f =>
+        {
+            var (request, posted) = await Post(f);
+            var item = request.Lines[0].ItemId;
+            await Reverse(f, posted, Fixture.Date.AddDays(1));
+            var before = (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>());
+            var document = await f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner, Fixture.Date,
+                Fixture.Date.AddDays(1), f.BranchId, request.WarehouseId, null, 1, 1, default);
+            var report = document.Report;
+            Ensure(report.Rows.Offset == 1 && report.Rows.TotalCount == 2 && report.InQuantity == 2 &&
+                report.OutQuantity == 2 && report.InValue == 10.5m && report.OutValue == 10.5m &&
+                report.ClosingValue == 0 && report.Rows.Items.Single().DocumentUnits.Single().Quantity == -2 &&
+                document.BranchNames.Length == 1 && document.BaseUnitCode == "EA" &&
+                document.WarehouseName is not null && document.ExtractedAt != default);
+            await Error("branch_access_denied", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Limited,
+                Fixture.Date, Fixture.Date.AddDays(1), f.OtherBranchId, null, null, 0, 1, default));
+            await Error("invalid_pagination", () => f.Service.Report.InventoryLedgerPrint(f.CompanyId, item, f.Owner,
+                Fixture.Date, Fixture.Date.AddDays(1), null, null, null, 0, 201, default));
+            Ensure(before == (f.Store.Count<AuditEvent>(), f.Store.Count<IdempotencyRecord>(), f.Store.Count<StockMovement>(),
+                f.Store.Count<JournalEntry>(), f.Store.Count<OutboxEvent>()));
+        });
         test("RPT08/09: invalid dates and paging are rejected", async f =>
         {
             await Error("invalid_date_range", () => Balance(f, to: Fixture.Date.AddDays(-1)));

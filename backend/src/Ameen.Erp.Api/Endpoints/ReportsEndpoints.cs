@@ -20,6 +20,18 @@ internal static class ReportsEndpoints
             ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.InventoryLedger(companyId, itemId, Actor(h), Date(from), Date(to), branchId, warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct, branchIds)))
             .Produces<InventoryLedgerResult>().RequireAuthorization().WithTags("RPT09 Item movement ledger");
+        app.MapGet(p + "/reports/items/{itemId:guid}/ledger/print", async (Guid companyId, Guid itemId, [FromQuery] string from, [FromQuery] string to,
+            Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? warehouseId, string? identityNumber, int? offset, int? limit,
+            ReportService s, HttpContext h, CancellationToken ct) =>
+        {
+            var document = await s.InventoryLedgerPrint(companyId, itemId, Actor(h), Date(from), Date(to), branchId,
+                warehouseId, identityNumber, offset ?? 0, limit ?? 50, ct, branchIds);
+            h.Response.Headers["Cache-Control"] = "no-store, private";
+            h.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            h.Response.Headers["X-Frame-Options"] = "DENY";
+            h.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+            return Results.Content(InventoryLedgerPrintHtml.Render(document), "text/html; charset=utf-8");
+        }).Produces<string>(StatusCodes.Status200OK, contentType: "text/html").RequireAuthorization().WithTags("RPT09 Item movement ledger");
         app.MapGet(p + "/reports/trial-balance", async (Guid companyId, [FromQuery] string from, [FromQuery] string to,
             Guid? branchId, [FromQuery] Guid[]? branchIds, Guid? costCenterId, int? accountLevel, bool? showZero, ReportService s, HttpContext h, CancellationToken ct) =>
             Results.Ok(await s.TrialBalance(companyId, Actor(h), Date(from), Date(to), branchId, ct, costCenterId, accountLevel, showZero ?? true, branchIds)))
