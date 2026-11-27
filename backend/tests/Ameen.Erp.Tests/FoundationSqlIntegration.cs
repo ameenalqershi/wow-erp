@@ -104,9 +104,58 @@ public static class FoundationSqlIntegration
         Ensure(child.Revision == 2 && child.Notes == "ملاحظة محفوظة" && child.ResponsibleMembershipId == ownerMember, "Center metadata persistence differs");
         var searched = await Call(s => s.CostCenter.SearchCostCenters(cid, owner, "Branch", journalRequest.BranchId, root.ResourceId, true, 0, 10, default));
         Ensure(searched.Items.Single().Id == child.Id, "Center scoped search SQL translation differs");
+        // COST01-AC02 / CTRL01: two independently valid edits must not
+        // jointly create a cycle under concurrent SQL transactions.
+        var aReceipt = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(), new("FND-CYCLE-A", "أ", null), default));
+        var bReceipt = await Call(s => s.CostCenter.CreateCostCenter(cid, owner, Fixture.Key(), new("FND-CYCLE-B", "ب", null), default));
+        var a = await Call(s => s.CostCenter.GetCostCenter(cid, aReceipt.ResourceId, owner, default));
+        var b = await Call(s => s.CostCenter.GetCostCenter(cid, bReceipt.ResourceId, owner, default));
+        var aKey = Fixture.Key(); var bKey = Fixture.Key();
+        async Task<string> TryParent(CostCenter card, Guid parentId, string editKey)
+        {
+            try
+            {
+                await Call(s => s.CostCenter.EditCostCenter(cid, card.Id, owner, editKey,
+                    CostCenterTests.Edit(card) with { ParentId = parentId }, default));
+                return "accepted";
+            }
+            catch (BusinessException ex) { return ex.Code; }
+        }
+        var outcomes = await Task.WhenAll(TryParent(a, b.Id, aKey), TryParent(b, a.Id, bKey));
+        Ensure(outcomes.Count(x => x == "accepted") == 1 &&
+            outcomes.Count(x => x == "center_tree_cycle") == 1, "COST01 concurrent reciprocal edits did not reject cycle");
+        await using (var db = Context())
+        {
+            var aa = await db.Set<CostCenter>().SingleAsync(x => x.CompanyId == cid && x.Id == a.Id);
+            var bb = await db.Set<CostCenter>().SingleAsync(x => x.CompanyId == cid && x.Id == b.Id);
+            var winner = outcomes[0] == "accepted" ? aa : bb;
+            var loser = outcomes[0] == "accepted" ? bb : aa;
+            var beforeLoser = outcomes[0] == "accepted" ? b : a;
+            var rejectedKey = outcomes[0] == "accepted" ? bKey : aKey;
+            Ensure(winner.ParentId == loser.Id && winner.Revision == 2 &&
+                loser.ParentId == null && loser.Version == beforeLoser.Version && loser.Revision == 1,
+                "COST01 rejected cycle changed persisted tree");
+            Ensure(await db.Set<AuditEvent>().CountAsync(x => x.CompanyId == cid &&
+                (x.ResourceId == a.Id || x.ResourceId == b.Id) && x.Action == "cost-center.edited") == 1 &&
+                !await db.Set<IdempotencyRecord>().AnyAsync(x => x.CompanyId == cid && x.Key == rejectedKey),
+                "COST01 rejected cycle persisted audit or receipt");
+        }
+        Console.WriteLine("  SQL PASS COST01 concurrent reciprocal edits reject cycle atomically");
         var centerJournal = journalRequest with { Lines = journalRequest.Lines.Select(x => x with { CostCenterId = child.Id }).ToArray() };
         await Call(s => s.Journal.CreateJournal(cid, clerk, Fixture.Key(), centerJournal, default));
         await Error("center_structure_in_use", () => Call(s => s.CostCenter.EditCostCenter(cid, child.Id, owner, Fixture.Key(), CostCenterTests.Edit(child) with { ParentId = null }, default)));
+        // The linked journal line must prevent even a privileged direct delete.
+        await using (var db = Context())
+        {
+            try
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM [CostCenters] WHERE [CompanyId]={cid} AND [Id]={child.Id}");
+                throw new Exception("COST01 used center was deleted");
+            }
+            catch (SqlException ex) when (ex.Number == 547) { }
+            Ensure(await db.Set<CostCenter>().AnyAsync(x => x.CompanyId == cid && x.Id == child.Id),
+                "COST01 failed delete lost center");
+        }
         var usage = await Call(s => s.CostCenter.GetCostCenterUsage(cid, root.ResourceId, owner, 0, 10, default));
         Ensure(usage.HasUsageInSubtree && usage.JournalCount == 0 && usage.ChildCenterCount == 1, "Center subtree usage differs");
         Console.WriteLine("  SQL PASS COST01 hierarchy, responsibility FK, concurrent replay, scoped search and subtree usage lock");
@@ -157,6 +206,16 @@ public static class FoundationSqlIntegration
                 var service = new TestServices(new SqlErpStore(db), new SqlTransactionRunner(db, new FixedClock()), new FixedClock());
                 var c = await service.Currency.GetCurrency(cid, currency.Id, owner, default);
                 await service.Currency.SetCurrencyStatus(cid, c.Id, owner, Fixture.Key(), new(c.Version, false, "إيقاف"), default);
+                command.CommandText = "DELETE FROM [CostCenters] WHERE [CompanyId]=@company AND [Id]=@center";
+                command.Parameters.AddWithValue("@company", cid);
+                command.Parameters.AddWithValue("@center", child.Id);
+                try
+                {
+                    await command.ExecuteNonQueryAsync();
+                    throw new Exception("COST01 runtime unexpectedly has DELETE permission");
+                }
+                catch (SqlException ex) when (ex.Number == 229) { }
+                finally { command.Parameters.Clear(); }
                 var center = await service.CostCenter.GetCostCenter(cid, child.Id, owner, default);
                 await service.CostCenter.SetCostCenterStatus(cid, center.Id, owner, Fixture.Key(), new(center.Version, false, "إيقاف"), default);
             }

@@ -2198,6 +2198,36 @@ public static class HostedApiIntegration
                 using (var usage = await client.GetAsync(centersPath + $"/{rootCenter.ResourceId}/usage"))
                 using (var json = JsonDocument.Parse(await usage.Content.ReadAsStringAsync()))
                     Ensure(json.RootElement.GetProperty("childCenterCount").GetInt32() == 1, "Center HTTP usage failed");
+                // COST01-AC02 / CTRL01: authenticated configuration cannot
+                // create a cycle or call a physical-delete endpoint.
+                using (var cycle = new HttpRequestMessage(HttpMethod.Put, centersPath + $"/{rootCenter.ResourceId}"))
+                {
+                    cycle.Headers.Add("Idempotency-Key", Fixture.Key());
+                    cycle.Content = new StringContent(JsonSerializer.Serialize(
+                        new EditCostCenterRequest(rootCenter.Version, "HTTP-ROOT", "مركز عام", null,
+                            rootCenter.ResourceId, null, null, null, "اختبار الدورة"), JsonDefaults.Options),
+                        Encoding.UTF8, "application/json");
+                    using var rejected = await client.SendAsync(cycle);
+                    using var error = JsonDocument.Parse(await rejected.Content.ReadAsStringAsync());
+                    Ensure(!rejected.IsSuccessStatusCode &&
+                        error.RootElement.GetProperty("code").GetString() == "center_tree_cycle",
+                        "COST01 HTTP cycle not rejected");
+                }
+                using (var deniedDelete = await client.DeleteAsync(centersPath + $"/{childCenter.ResourceId}"))
+                    Ensure(deniedDelete.StatusCode == HttpStatusCode.MethodNotAllowed,
+                        "COST01 physical DELETE unexpectedly available");
+                using (var persisted = await client.GetAsync(centersPath + $"/{rootCenter.ResourceId}"))
+                using (var data = JsonDocument.Parse(await persisted.Content.ReadAsStringAsync()))
+                    Ensure(persisted.StatusCode == HttpStatusCode.OK &&
+                        data.RootElement.GetProperty("version").GetGuid() == rootCenter.Version &&
+                        data.RootElement.GetProperty("parentId").ValueKind == JsonValueKind.Null,
+                        "COST01 rejected HTTP cycle mutated root");
+                using (var audit = await client.GetAsync(centersPath + $"/{rootCenter.ResourceId}/audit-events"))
+                using (var data = JsonDocument.Parse(await audit.Content.ReadAsStringAsync()))
+                    Ensure(audit.StatusCode == HttpStatusCode.OK &&
+                        data.RootElement.GetProperty("totalCount").GetInt32() == 1,
+                        "COST01 rejected HTTP cycle added audit");
+                Console.WriteLine("  HOST PASS COST01 cycle rollback and absence of DELETE over HTTPS/JWT/SQL");
                 var trialByCenter = $"/api/v1/companies/{companyId}/reports/trial-balance?from=2026-01-01&to=2026-12-31" +
                     $"&accountLevel=1&showZero=false&costCenterId={childCenter.ResourceId}";
                 using (var active = await client.GetAsync(trialByCenter))
