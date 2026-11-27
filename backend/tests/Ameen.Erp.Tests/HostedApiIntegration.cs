@@ -430,6 +430,54 @@ public static class HostedApiIntegration
                         line.GetProperty("functionalDebit").GetString() == row.GetProperty("debit").GetString(),
                         "RPT02-OP03 authorized branch read did not return the exact source line");
                 }
+                // RPT02-OP02: the display contract must retain the entire
+                // statement's accounting scope and totals across HTTP pages.
+                using (var firstPage = await client.GetAsync(gl03LedgerPath + "&offset=0&limit=1"))
+                using (var endPage = await client.GetAsync(gl03LedgerPath + "&offset=1&limit=1"))
+                {
+                    firstPage.EnsureSuccessStatusCode();
+                    endPage.EnsureSuccessStatusCode();
+                    var first = JsonSerializer.Deserialize<AccountLedgerResult>(
+                        await firstPage.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    var end = JsonSerializer.Deserialize<AccountLedgerResult>(
+                        await endPage.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    Ensure(first.Entries.TotalCount == 1 && first.Entries.Items.Count == 1 &&
+                        first.Entries.Offset == 0 && first.Entries.Limit == 1 &&
+                        end.Entries.TotalCount == 1 && end.Entries.Items.Count == 0 &&
+                        end.Entries.Offset == 1 && end.Entries.Limit == 1 &&
+                        first.CompanyId == companyId && first.AccountId == journalRequest.Lines[0].AccountId &&
+                        first.BranchIds.SequenceEqual(new[] { journalRequest.BranchId }) &&
+                        end.BranchIds.SequenceEqual(first.BranchIds) && end.AccountId == first.AccountId &&
+                        end.CompanyId == first.CompanyId && end.Currency == first.Currency &&
+                        end.From == first.From && end.To == first.To &&
+                        end.ExternalReference == first.ExternalReference &&
+                        end.OpeningBalance == first.OpeningBalance && end.PeriodDebit == first.PeriodDebit &&
+                        end.PeriodCredit == first.PeriodCredit && end.ClosingBalance == first.ClosingBalance &&
+                        first.OpeningBalance + first.PeriodDebit - first.PeriodCredit == first.ClosingBalance,
+                        "RPT02 display page changed the statement's accounting totals");
+                }
+                using (var empty = await client.GetAsync(gl03LedgerPath.Replace("000070-PRINT", "NO-RPT02-MATCH")))
+                {
+                    empty.EnsureSuccessStatusCode();
+                    var statement = JsonSerializer.Deserialize<AccountLedgerResult>(
+                        await empty.Content.ReadAsStringAsync(), JsonDefaults.Options)!;
+                    Ensure(statement.Entries.TotalCount == 0 && statement.Entries.Items.Count == 0 &&
+                        statement.OpeningBalance == 0 && statement.ClosingBalance == 0 &&
+                        statement.PeriodDebit == 0 && statement.PeriodCredit == 0,
+                        "RPT02 empty filter returned unrelated movements");
+                }
+                foreach (var suffix in new[] { "&offset=-1", "&limit=0", "&limit=201" })
+                {
+                    using var invalidPage = await client.GetAsync(gl03LedgerPath + suffix);
+                    Ensure(invalidPage.StatusCode == HttpStatusCode.UnprocessableEntity,
+                        "RPT02 accepted invalid display page " + suffix);
+                }
+                using (var invalidPeriod = await client.GetAsync(gl03LedgerPath.Replace("to=2026-12-31", "to=2025-12-31")))
+                    Ensure(invalidPeriod.StatusCode == HttpStatusCode.UnprocessableEntity, "RPT02 accepted invalid period");
+                using (var missingAccount = await client.GetAsync(gl03LedgerPath.Replace(
+                    journalRequest.Lines[0].AccountId.ToString(), Guid.NewGuid().ToString())))
+                    Ensure(missingAccount.StatusCode == HttpStatusCode.NotFound, "RPT02 returned nonexistent account");
+                Console.WriteLine("  HOST PASS RPT02-OP02 stable display totals, empty and exhausted page, scoped JWT and invalid requests");
                 using (var missingSource = await client.GetAsync(path + $"/{Guid.NewGuid()}"))
                     Ensure(missingSource.StatusCode == HttpStatusCode.NotFound,
                         "RPT02-OP03 nonexistent source did not return 404");
